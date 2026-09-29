@@ -1,0 +1,7 @@
+[server]
+headless = true
+address = "localhost"
+port = 8501
+maxUploadSize = 4096      # allow selecting wav files up to 4 GB
+[browser]
+gatherUsageStats = false
