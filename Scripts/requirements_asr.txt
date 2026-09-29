@@ -1,0 +1,17 @@
+# Full pipeline dependencies. Install once into a venv:
+#   python3 -m venv venv && ./venv/bin/pip install -r requirements_asr.txt
+#
+# The packages that affect the measurements are pinned to exact versions, so
+# that two people installing on different days get identical numbers. Update
+# them deliberately, after checking that results are unchanged - not by
+# accident because a new release appeared.
+faster-whisper==1.2.1
+praat-parselmouth==0.4.7
+numpy==2.0.2
+soundfile==0.13.1
+
+# Interface and file I/O: these cannot change a measurement, so a minimum
+# version is enough.
+openpyxl>=3.1
+pyyaml>=6.0
+streamlit>=1.40

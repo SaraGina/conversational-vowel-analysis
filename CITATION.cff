@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+title: >-
+  From AV Recordings to Acoustic Measurements: An Open-Source
+  Pipeline for Automatic Analysis in Spontaneous Conversation
+message: >-
+  If you use this software, please cite both the software and the
+  conference abstract below.
+type: software
+authors:
+  - given-names: Sara R.
+    family-names: Martin
+    email: sara.martin@ntnu.no
+    affiliation: >-
+      Department of Electronic Systems, Norwegian University of
+      Science and Technology
+    orcid: 'https://orcid.org/0000-0002-2393-7272'
+  - given-names: Han
+    family-names: Zhang
+    affiliation: Department of Linguistics, Simon Fraser University
+  - given-names: Yue
+    family-names: Wang
+    affiliation: Department of Linguistics, Simon Fraser University
+  - given-names: Dawn M.
+    family-names: Behne
+    affiliation: >-
+      Department of Psychology, Norwegian University of Science and
+      Technology
+repository-code: 'https://github.com/SaraGina/conversational-vowel-analysis'
+license: MIT
+version: 1.0.0
+date-released: '2026-09-30'
+keywords:
+  - speech adaptation
+  - native-nonnative interaction
+  - automatic segmentation
+  - acoustic measurement
+  - forced alignment
+  - vowel formants

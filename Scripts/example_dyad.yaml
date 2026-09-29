@@ -1,0 +1,29 @@
+# Example dyad config - copy this file, rename it, and edit.
+speaker_A:
+  audio: speakerA.wav               # place the file in Input/
+  transcript: speakerA_fw.json      # optional; transcribed automatically if absent
+  label: Confederate
+  max_formant: 5000                 # ~5000 lower voices, ~5500 higher voices
+speaker_B:
+  audio: speakerB.wav
+  transcript: speakerB_fw.json
+  label: Participant
+  max_formant: 5500
+
+# The words to search for. Each entry is a name and the two words of the pair.
+pairs:
+  sheep_ship:  [sheep, ship]
+  meal_mill:   [meal, mill]
+  pool_pull:   [pool, pull]
+
+segment_gap: 45          # gap (s) between two tokens of the SAME pair
+                         # that starts a new discussion segment for it
+
+# Optional: an existing manual annotation to compare against, in Output/.
+# Omit the line to skip the comparison.
+# human_excel: manual_annotation.xlsx
+
+# Optional: analyze only part of the recording (seconds). Useful to exclude
+# a warm-up period that annotators also exclude. 0 = no limit.
+analysis_start: 0
+analysis_end: 0
