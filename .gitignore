@@ -1,0 +1,33 @@
+# --- Python -----------------------------------------------------------------
+Scripts/venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# --- Participant data: NEVER commit -----------------------------------------
+# Voice recordings and their transcripts are personal data under the GDPR.
+# Measurement tables carry participant identifiers.
+*.wav
+*.WAV
+*.mp3
+*.m4a
+Output/
+Figures/
+*.xlsx
+*.TextGrid
+
+# Input/ is where recordings, transcripts and notes are dropped, so nothing in
+# it is released except the three files the pipeline ships with.
+Input/*
+!Input/master_vocab.csv
+!Input/english_us_arpa.dict
+!Input/manual_annotation_template.xlsx
+
+
+# --- OS / editor ------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+setup_error.log
+setup_error.html
