@@ -151,6 +151,9 @@ def run_config(cfg):
 
     Gives back the path of the Excel it wrote.
     """
+    # make the Output folder if it is not there yet
+    os.makedirs(OUTPUT, exist_ok=True)
+
     A, B = cfg["speaker_A"], cfg["speaker_B"]
     audio_a = _find_file(A["audio"], AUDIO_DIRS)
     audio_b = _find_file(B["audio"], AUDIO_DIRS)
