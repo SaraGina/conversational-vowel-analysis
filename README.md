@@ -1,5 +1,7 @@
 # Automatic acoustic analysis of dyadic conversation
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23045187.svg)](https://doi.org/10.5281/zenodo.23045187)
+
 An open-source Python pipeline that finds, segments and measures target words
 in unscripted two-speaker conversations, replacing manual annotation in Praat.
 
@@ -274,7 +276,13 @@ speaker's own microphone, and a list of the words to be measured.
 
 ## Citing
 
-See `CITATION.cff`, or use GitHub's "Cite this repository" button.
+    https://doi.org/10.5281/zenodo.23045187
+
+That DOI always resolves to the most recent version. Each release also
+has its own: version 1.0.0 is `10.5281/zenodo.23045188`.
+
+Full author list and the conference abstract are in `CITATION.cff`, which
+GitHub's "Cite this repository" button reads.
 
 ## License
 

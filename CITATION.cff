@@ -26,6 +26,14 @@ authors:
       Department of Psychology, Norwegian University of Science and
       Technology
 repository-code: 'https://github.com/SaraGina/conversational-vowel-analysis'
+doi: 10.5281/zenodo.23045187
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23045187
+    description: Concept DOI, always resolving to the latest version
+  - type: doi
+    value: 10.5281/zenodo.23045188
+    description: DOI of version 1.0.0
 license: MIT
 version: 1.0.0
 date-released: '2026-09-30'
@@ -34,5 +42,5 @@ keywords:
   - native-nonnative interaction
   - automatic segmentation
   - acoustic measurement
-  - forced alignment
+  - speech recognition
   - vowel formants
