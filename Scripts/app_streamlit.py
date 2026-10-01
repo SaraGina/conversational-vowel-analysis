@@ -51,7 +51,7 @@ def save_into(uploaded, folder):
     return dest
 
 
-st.title("🎙️ Dyad vowel-analysis pipeline")
+st.title("Dyad vowel-analysis pipeline")
 st.info("🔒 **Everything happens on this computer.** This page is served by a "
         "small program running locally — there is no server on the internet. "
         "The files you select below are only copied into the project folder "
@@ -307,8 +307,11 @@ pairs_rows = [{"pair name": r["name"], "word 1": r["w1"], "word 2": r["w2"]}
               for r in st.session_state.pair_rows]
 
 st.subheader("Options")
-up_h = st.file_uploader("Human annotation Excel — optional, enables the "
-                        "system-vs-human comparison (.xlsx)", type=["xlsx"])
+uh_col, _ = st.columns([1, 1])
+with uh_col:
+    up_h = st.file_uploader("Human annotation Excel — optional, enables the "
+                            "system-vs-human comparison (.xlsx)",
+                            type=["xlsx"])
 seg_gap = st.number_input(
     "Segment gap (s)", 5, 300, 45,
     help="Groups each pair's tokens into discussion episodes (the Segment "
