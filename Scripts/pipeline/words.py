@@ -32,15 +32,52 @@ def find_words(tokens, word_list):
 _VC = {"IY": (3, 1), "IH": (2.5, 1), "EH": (2, 1), "EY": (2, 1), "AE": (1, 1),
        "AH": (2, 2), "ER": (2, 2), "AA": (1, 3), "AO": (1.5, 3), "OW": (2, 3),
        "UH": (2.5, 3), "UW": (3, 3)}
+
+# Danish, in the SAMPA of the NST lexicon. Rounded front vowels sit at
+# backness 1.5 because rounding lowers F2, placing them between front and
+# central. Length and stod are stripped before the lookup: a recogniser that
+# writes the short vowel for the long one has made exactly the kind of near
+# miss this search is meant to catch.
+_VC_DA = {"i": (3, 1),   "y": (3, 1.5),   "u": (3, 3),
+          "e": (2.5, 1), "2": (2.5, 1.5), "o": (2.5, 3),
+          "E": (2, 1),   "9": (2, 1.5),   "@": (2, 2),   "O": (2, 3),
+          "6": (1.5, 2), "Q": (1.5, 3),
+          "a": (1, 1),   "A": (1, 3)}
+
+VOWELS = {"en": _VC, "da": _VC_DA}
 # Distance between vowels to create new words
 _THR = 1.0
 _ALPHA = re.compile(r"^[A-Z]")
+_NUMBER = re.compile(r"^[\d.]+$")
 _DIGIT = re.compile(r"\d")
 
 
-def _vowel_distance(a, b):
-    (h1, b1), (h2, b2) = _VC[a], _VC[b]
+def _vowel_distance(a, b, vowels):
+    (h1, b1), (h2, b2) = vowels[a], vowels[b]
     return abs(h1 - h2) + abs(b1 - b2)
+
+
+def _read_entries(dict_path, language):
+    """(word, [phonemes]) from the dictionary, in that language's convention.
+
+    ARPAbet writes stress as a digit on the vowel, so those are dropped; the
+    Danish SAMPA uses digits as vowel symbols, so they are kept. Length and
+    stod are dropped there instead, since neither changes which vowel it is.
+    """
+    arpa = language == "en"
+    entries = []
+    with open(dict_path, encoding="utf-8") as f:
+        for line in f:
+            tok = line.split()
+            if len(tok) < 2:
+                continue
+            if arpa:
+                ph = [_DIGIT.sub("", p) for p in tok[1:] if _ALPHA.match(p)]
+            else:
+                ph = [p.rstrip(":?") for p in tok[1:] if not _NUMBER.match(p)]
+            if ph:
+                entries.append((clean(tok[0]), ph))
+    return entries
 
 # C- Default dictionary path 
 # New dictionaries can be added here!
@@ -62,7 +99,8 @@ def default_dict_path(scripts_dir, language="en"):
     return os.path.join(os.path.dirname(scripts_dir), "Input", name)
 
 
-def expand_words(words, dict_path):
+def expand_words(words, dict_path, language="en"):
+    vowels = VOWELS.get(language, _VC)
     words = sorted({clean(w) for w in words if clean(w)})
     cand = {w: {w} for w in words}
     if not os.path.isfile(dict_path):
@@ -70,16 +108,7 @@ def expand_words(words, dict_path):
               "neighbour expansion skipped.")
         return {w: sorted(v) for w, v in cand.items()}
 
-    # (clean word, [phonemes stress-stripped])
-    entries = []
-    with open(dict_path, encoding="utf-8") as f:
-        for line in f:
-            tok = line.split()
-            if len(tok) < 2:
-                continue
-            ph = [_DIGIT.sub("", p) for p in tok[1:] if _ALPHA.match(p)]
-            if ph:
-                entries.append((clean(tok[0]), ph))
+    entries = _read_entries(dict_path, language)
 
     # frames of the target words: blanked-vowel key -> [(word, vowel)]
     frames = {}
@@ -88,17 +117,17 @@ def expand_words(words, dict_path):
         if w not in targets:
             continue
         for i, p in enumerate(ph):
-            if p in _VC:
+            if p in vowels:
                 key = " ".join(ph[:i] + ["_"] + ph[i + 1:])
                 frames.setdefault(key, []).append((w, p))
 
     # scan all words; frame match + proximity-close vowel 
     for w, ph in entries:
         for i, p in enumerate(ph):
-            if p not in _VC:
+            if p not in vowels:
                 continue
             key = " ".join(ph[:i] + ["_"] + ph[i + 1:])
             for tw, tv in frames.get(key, ()):
-                if p == tv or _vowel_distance(p, tv) <= _THR:
+                if p == tv or _vowel_distance(p, tv, vowels) <= _THR:
                     cand[tw].add(w)
     return {w: sorted(v) for w, v in cand.items()}

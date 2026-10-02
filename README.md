@@ -42,13 +42,12 @@ command.
   any first language - that is what the pipeline was built to study - but the
   words being searched for are in the language chosen here.
 
-  English ships with a pronunciation dictionary, which lets the search also
-  find the spellings a recogniser may invent for a target word. A language
-  without one still runs, and the measurements are unaffected, but the words
-  are then searched exactly as written. To add a dictionary, drop a file in
-  `Input/` and name it in `DICTIONARIES` in `Scripts/pipeline/words.py`; the
-  vowel table `_VC` in the same file also has to describe that language's
-  vowels for the neighbour search to work.
+  Both ship with a pronunciation dictionary, which lets the search also find
+  the spellings a recogniser may invent for a target word. To add a third
+  language, drop a dictionary in `Input/`, name it in `DICTIONARIES` in
+  `Scripts/pipeline/words.py`, and add that language's vowels to `VOWELS` in
+  the same file. A language with no dictionary still runs and the measurements
+  are unaffected, but the words are then searched exactly as written.
 
 ## Install
 

@@ -192,7 +192,7 @@ def run_config(cfg):
     # reached through a neighbour spelling, and gets flagged VARIANT
     core_all = {clean(w) for _, ws in sets for w in ws}
     cand = expand_words([w for _, ws in sets for w in ws],
-                        default_dict_path(SCRIPTS, language))
+                        default_dict_path(SCRIPTS, language), language)
     set_words = []
     for name, ws in sets:
         expanded = set()
