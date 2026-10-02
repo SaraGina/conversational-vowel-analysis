@@ -93,7 +93,8 @@ change."""
 lang_col, _ = st.columns([1, 2])
 with lang_col:
     language = st.selectbox(
-        "Language of the recordings", sorted(LANGUAGES),
+        # English first: it is the default, and the only one with a dictionary
+        "Language of the recordings", list(LANGUAGES),
         format_func=lambda c: LANGUAGES[c],
         help="What the recogniser is told to transcribe. A language without a "
              "pronunciation dictionary still runs, but the search then uses "
