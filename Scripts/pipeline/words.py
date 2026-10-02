@@ -44,10 +44,22 @@ def _vowel_distance(a, b):
 
 # C- Default dictionary path 
 # New dictionaries can be added here!
-def default_dict_path(scripts_dir):
+# the pronunciation dictionary shipped for each language
+DICTIONARIES = {"en": "english_us_arpa.dict",
+                "da": "danish.dict"}
 
-    return os.path.join(os.path.dirname(scripts_dir), "Input",
-                        "english_us_arpa.dict")
+# what the recogniser is told, and what the screen calls it
+LANGUAGES = {"en": "English", "da": "Danish"}
+
+
+def default_dict_path(scripts_dir, language="en"):
+    """Where the pronunciation dictionary for this language lives.
+
+    A language with no dictionary here still runs: the search then uses the
+    words exactly as written, and expand_words says so.
+    """
+    name = DICTIONARIES.get(language, f"{language}.dict")
+    return os.path.join(os.path.dirname(scripts_dir), "Input", name)
 
 
 def expand_words(words, dict_path):

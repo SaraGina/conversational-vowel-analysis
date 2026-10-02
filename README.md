@@ -37,12 +37,18 @@ command.
   one syllable are found and timed, but only one of their vowels is measured,
   with no indication of which - so they are outside what this pipeline is
   built for at the moment.
-- **English target words.** The pronunciation dictionary shipped here is
-  English (US). The speakers may have any first language - that is what the
-  pipeline was built to study - but the words being searched for are English.
-  Nothing in the design is tied to English: the pipeline can work from another
-  language's dictionary, though setting one up takes more than dropping the
-  file in place. Documenting that is planned.
+- **A language the recogniser knows.** Set `language:` in the config, or pick
+  it in the browser app: `en` (English) or `da` (Danish). The speakers may have
+  any first language - that is what the pipeline was built to study - but the
+  words being searched for are in the language chosen here.
+
+  English ships with a pronunciation dictionary, which lets the search also
+  find the spellings a recogniser may invent for a target word. A language
+  without one still runs, and the measurements are unaffected, but the words
+  are then searched exactly as written. To add a dictionary, drop a file in
+  `Input/` and name it in `DICTIONARIES` in `Scripts/pipeline/words.py`; the
+  vowel table `_VC` in the same file also has to describe that language's
+  vowels for the neighbour search to work.
 
 ## Install
 
@@ -273,6 +279,12 @@ audio; the pipeline runs on recordings supplied by the user.
 
 Trying it out takes two `.wav` files from a single conversation, one per
 speaker's own microphone, and a list of the words to be measured.
+
+## Versions
+
+`v1.0.0` is the version used for the AVSP 2026 presentation, archived with its
+own DOI. Later versions extend the pipeline beyond that study; use the release
+that matches the work you are citing.
 
 ## Citing
 

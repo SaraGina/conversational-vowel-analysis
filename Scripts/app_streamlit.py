@@ -20,7 +20,7 @@ st.set_page_config(page_title="Dyad pipeline", page_icon="🎙️", layout="cent
 # --- import the pipeline; if a library is broken, show a friendly page ------
 try:
     from pipeline.run import run_config, INPUT, OUTPUT
-    from pipeline.words import clean
+    from pipeline.words import clean, LANGUAGES, DICTIONARIES
 except Exception:
     st.error("### ⚠️ The pipeline could not start\n"
              "One of the required libraries failed to load. This usually "
@@ -90,6 +90,19 @@ If F1 and F2 look implausible for a speaker, this is the first setting to
 change."""
 
 
+lang_col, _ = st.columns([1, 2])
+with lang_col:
+    language = st.selectbox(
+        "Language of the recordings", sorted(LANGUAGES),
+        format_func=lambda c: LANGUAGES[c],
+        help="What the recogniser is told to transcribe. A language without a "
+             "pronunciation dictionary still runs, but the search then uses "
+             "the words exactly as written.")
+if not os.path.isfile(os.path.join(INPUT, DICTIONARIES.get(language, ""))):
+    st.info(f"No pronunciation dictionary for {LANGUAGES[language]} yet \u2014 "
+            "words will be searched exactly as written, without the "
+            "spelling-variant recovery.")
+
 col1, col2 = st.columns(2)
 with col1:
     st.subheader("Speaker A (native)")
@@ -125,14 +138,17 @@ ARPA_TENSITY = {"IY": "tense", "IH": "lax", "UW": "tense", "UH": "lax",
 
 
 @st.cache_data(show_spinner=False)
-def load_pronunciations():
-    """word -> phoneme list, from the dictionary bundled in Input/.
+def load_pronunciations(language):
+    """word -> phoneme list, from the dictionary for this language.
+
+    The language is an argument so that the cache is not shared between
+    languages.
 
     A word can have several pronunciations; the column after the word is the
     pronunciation probability, so keep the most likely one (a rare reduced
     variant such as "bit" without its final /t/ would otherwise win).
     """
-    path = os.path.join(INPUT, "english_us_arpa.dict")
+    path = os.path.join(INPUT, DICTIONARIES.get(language, ""))
     out = {}
     try:
         with open(path, encoding="utf-8") as fh:
@@ -158,7 +174,7 @@ def load_pronunciations():
 
 def suggest_features(word):
     """(vowel, tensity, env) guessed from the dictionary; blanks if unknown."""
-    ph = load_pronunciations().get(clean(word))
+    ph = load_pronunciations(language).get(clean(word))
     if not ph:
         return "", "", ""
     idx = next((i for i, p in enumerate(ph) if p in ARPA_VOWEL_IPA), None)
@@ -371,7 +387,7 @@ if st.button("▶ Run pipeline", type="primary", use_container_width=True):
                       "max_formant": mf_a},
         "speaker_B": {"audio": os.path.basename(audio_b), "label": label_b,
                       "max_formant": mf_b},
-        "pairs": pairs, "segment_gap": seg_gap,
+        "pairs": pairs, "segment_gap": seg_gap, "language": language,
         "analysis_start": win_start, "analysis_end": win_end,
     }
     if human_name:

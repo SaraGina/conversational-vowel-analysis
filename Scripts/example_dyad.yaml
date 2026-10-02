@@ -1,4 +1,11 @@
 # Example dyad config - copy this file, rename it, and edit.
+
+# Language of the recordings: en (English) or da (Danish).
+# Leave it out and English is used. A language without a pronunciation
+# dictionary in Input/ still runs, but the words are then searched exactly as
+# written, without recovering the spellings the recogniser may invent.
+language: en
+
 speaker_A:
   audio: speakerA.wav               # place the file in Input/
   transcript: speakerA_fw.json      # optional; transcribed automatically if absent

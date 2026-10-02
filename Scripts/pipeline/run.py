@@ -20,7 +20,8 @@ import sys
 import yaml
 
 from .importer import import_transcript
-from .words import clean, find_words, expand_words, default_dict_path
+from .words import (clean, find_words, expand_words, default_dict_path,
+                    LANGUAGES)
 from .speaker import assign_speaker
 from .measure import run_measurement
 from .analyze import annotate, load_vocab, write_excel
@@ -64,13 +65,18 @@ def _same_recording(a, b):
     return _file_fingerprint(a) == _file_fingerprint(b)
 
 
-def _transcript_for(audio_path, cfg_spk):
+def _transcript_for(audio_path, cfg_spk, language="en"):
     """Finds this speaker's transcript, creating it first if it is not there
-    yet."""
+    yet.
+
+    The language is part of the file name, so that changing it does not reuse
+    a transcript made in the other one. English keeps the older name.
+    """
     if cfg_spk.get("transcript"):
         return _find_file(cfg_spk["transcript"], [INPUT])
     stem = os.path.splitext(os.path.basename(audio_path))[0]
-    json_path = os.path.join(INPUT, stem + "_fw.json")
+    suffix = "_fw.json" if language == "en" else f"_fw_{language}.json"
+    json_path = os.path.join(INPUT, stem + suffix)
     if not os.path.isfile(json_path):
         print(f"\nTranscribing {stem} with faster-whisper "
               "(the long step: ~10 min per 50-min recording)...", flush=True)
@@ -78,7 +84,7 @@ def _transcript_for(audio_path, cfg_spk):
         # log (e.g. the browser app) can show its progress
         proc = subprocess.Popen(
             [sys.executable, os.path.join(SCRIPTS, "transcribe_fw.py"),
-             audio_path, json_path],
+             audio_path, json_path, "--language", language],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         for chunk in iter(lambda: proc.stdout.read(64), ""):
             print(chunk, end="", flush=True)
@@ -100,6 +106,10 @@ def _config_problem(cfg):
             return f"'{key}' has no 'audio' line naming its recording."
         if not block.get("label"):
             return f"'{key}' has no 'label' line naming its speaker."
+    lang = str(cfg.get("language", "en")).lower()
+    if lang not in LANGUAGES:
+        return (f"'language: {lang}' is not one of the languages this copy "
+                f"knows: {', '.join(sorted(LANGUAGES))}.")
     pairs = cfg.get("pairs")
     if not isinstance(pairs, dict) or not pairs:
         return ("'pairs' is missing or was not read as a list of word pairs. "
@@ -169,8 +179,9 @@ def run_config(cfg):
             "microphone recordings of one conversation, one per speaker.")
 
     # Transcription with faster-whisper, if it has not been done already
-    ts_a = _transcript_for(audio_a, A)
-    ts_b = _transcript_for(audio_b, B)
+    language = str(cfg.get("language", "en")).lower()
+    ts_a = _transcript_for(audio_a, A, language)
+    ts_b = _transcript_for(audio_b, B, language)
 
     # A- import transcripts + word search 
     tokens = (import_transcript(ts_a, label_a)
@@ -181,7 +192,7 @@ def run_config(cfg):
     # reached through a neighbour spelling, and gets flagged VARIANT
     core_all = {clean(w) for _, ws in sets for w in ws}
     cand = expand_words([w for _, ws in sets for w in ws],
-                        default_dict_path(SCRIPTS))
+                        default_dict_path(SCRIPTS, language))
     set_words = []
     for name, ws in sets:
         expanded = set()
