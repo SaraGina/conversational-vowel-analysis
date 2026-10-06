@@ -571,3 +571,60 @@ if st.button("▶ Run pipeline", type="primary", use_container_width=True):
                        "usually means the recordings and the human Excel "
                        "belong to **different sessions** - check that they "
                        "are from the same dyad/conversation.")
+
+
+# --- second way in: measure words an annotation already locates -------------
+with st.container(border=True):
+    st.subheader("Already annotated?")
+    st.caption(
+        "If the words have already been located by hand, the first three "
+        "stages are not needed. Give **one** recording and the annotation, and "
+        "every word in it is measured inside the boundaries it gives - one "
+        "recording is enough here, because the annotation already says who "
+        "spoke.")
+    ac1, ac2 = st.columns(2)
+    with ac1:
+        ann_audio = st.file_uploader("Recording (.wav)", type=["wav"],
+                                     key="ann_audio")
+        ann_label = st.text_input("Speaker label", "Talker 1", key="ann_label")
+    with ac2:
+        ann_xlsx = st.file_uploader("Annotation (.xlsx)", type=["xlsx"],
+                                    key="ann_xlsx")
+        ann_mf = st.number_input("Formant ceiling (Hz)", 3000, 7000, 5000,
+                                 step=100, key="ann_mf")
+    st.caption(
+        "The sheet needs a column with the word and one with its onset in "
+        "seconds. An end column is used where it is there; where it is not, "
+        "the boundaries are found by silence detection and the row is marked "
+        "FROM ONSET. Every word is also measured a second time with the "
+        "boundaries refined, reported beside the first as a check - the two "
+        "usually agree, and where they do not, the difference is how much the "
+        "boundary placement moved F1 and F2.")
+
+    if st.button("Measure the annotated words", use_container_width=True,
+                 key="ann_run"):
+        if ann_audio is None or ann_xlsx is None:
+            st.error("Both a recording and an annotation file are needed.")
+            st.stop()
+        ann_log = io.StringIO()
+        with st.spinner("Measuring with Praat..."):
+            a_path = save_into(ann_audio, INPUT)
+            x_path = save_into(ann_xlsx, INPUT)
+            try:
+                with contextlib.redirect_stdout(ann_log):
+                    ann_out = run_config({
+                        "annotations": os.path.basename(x_path),
+                        "speaker_A": {"audio": os.path.basename(a_path),
+                                      "label": ann_label,
+                                      "max_formant": ann_mf}})
+            except Exception as exc:
+                st.error(f"The measurement stopped: {exc}")
+                st.code(ann_log.getvalue() or traceback.format_exc(),
+                        language=None)
+                st.stop()
+        st.success(f"Measured -> {os.path.basename(ann_out)}")
+        st.code(ann_log.getvalue(), language=None)
+        with open(ann_out, "rb") as fh:
+            st.download_button("Download the measurements", fh.read(),
+                               file_name=os.path.basename(ann_out),
+                               use_container_width=True, key="ann_dl")
