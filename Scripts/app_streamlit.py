@@ -20,15 +20,24 @@ st.set_page_config(page_title="Dyad pipeline", page_icon="🎙️", layout="wide
 # A wider column than the default, but still narrow enough for the text to be
 # read comfortably, and a larger base size than Streamlit's own.
 st.markdown("""<style>
-.block-container {max-width: 1150px; padding-top: 2.5rem;}
-html, body, [class*="st-"] {font-size: 18px;}
-h1 {font-size: 2.4rem !important;}
-h2 {font-size: 1.8rem !important;}
-h3 {font-size: 1.45rem !important;}
-label p, .stMarkdown p {font-size: 1.05rem !important;}
-[data-testid="stCaptionContainer"] p {font-size: 0.95rem !important;}
-.stTabs [data-baseweb="tab"] {padding: 0.7rem 1.6rem;}
-.stTabs [data-baseweb="tab"] p {font-size: 1.3rem !important; font-weight: 600;}
+html {font-size: 20px;}
+.block-container {max-width: 1200px; padding-top: 2.5rem;}
+html, body, .stApp, [class*="st-"] {font-size: 20px;}
+h1 {font-size: 2.5rem !important;}
+h2 {font-size: 1.9rem !important;}
+h3 {font-size: 1.5rem !important;}
+/* body text, widget labels and the help bubbles */
+.stMarkdown p, .stMarkdown li, label p, label div {font-size: 1.1rem !important;}
+[data-testid="stCaptionContainer"] p {font-size: 1.0rem !important;}
+/* what the user types into */
+input, textarea, select,
+.stTextInput input, .stNumberInput input, .stSelectbox div {
+    font-size: 1.05rem !important;}
+.stButton button p, .stDownloadButton button p {font-size: 1.1rem !important;}
+[data-testid="stFileUploaderDropzone"] {font-size: 1.05rem !important;}
+/* the two tabs read as tabs, not as links */
+.stTabs [data-baseweb="tab"] {padding: 0.8rem 1.8rem;}
+.stTabs [data-baseweb="tab"] p {font-size: 1.45rem !important; font-weight: 600;}
 </style>""", unsafe_allow_html=True)
 
 # --- import the pipeline; if a library is broken, show a friendly page ------
@@ -103,7 +112,7 @@ If F1 and F2 look implausible for a speaker, this is the first setting to
 change."""
 
 
-st.caption("Fields marked :red[*] are required. Everything else is optional.")
+st.caption("Fields marked :green[*] are required. Everything else is optional.")
 
 tab_full, tab_ann = st.tabs([
     "① Start from the recordings",
@@ -135,16 +144,16 @@ with tab_full:
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("**Speaker A** · native")
-            up_a = st.file_uploader("Recording — own mic (.wav) :red[*]",
+            up_a = st.file_uploader("Recording — own mic (.wav) :green[*]",
                                     type=["wav"], key="ua")
-            label_a = st.text_input("Label :red[*]", "Confederate")
+            label_a = st.text_input("Label :green[*]", "Confederate")
             mf_a = st.number_input("Formant ceiling (Hz)", 4000, 6000, 5000, step=100,
                                    key="fa", help=MF_HELP)
         with col2:
             st.markdown("**Speaker B** · nonnative")
-            up_b = st.file_uploader("Recording — own mic (.wav) :red[*]",
+            up_b = st.file_uploader("Recording — own mic (.wav) :green[*]",
                                     type=["wav"], key="ub")
-            label_b = st.text_input("Label :red[*]", "Participant")
+            label_b = st.text_input("Label :green[*]", "Participant")
             mf_b = st.number_input("Formant ceiling (Hz)", 4000, 6000, 5500, step=100,
                                    key="fb", help=MF_HELP)
 
@@ -352,7 +361,7 @@ with tab_full:
 
 
     with st.container(border=True):
-        st.subheader("Minimal pairs :red[*]")
+        st.subheader("Minimal pairs :green[*]")
         st.caption("**You choose the words here.** The pipeline will search the two "
                    "recordings for exactly these words and measure every instance it "
                    "finds. Edit any cell, remove a pair with its 🗑️ button, or add "
@@ -731,12 +740,12 @@ with tab_ann:
             "spoke.")
         ac1, ac2 = st.columns(2)
         with ac1:
-            ann_audio = st.file_uploader("Recording (.wav) :red[*]",
+            ann_audio = st.file_uploader("Recording (.wav) :green[*]",
                                          type=["wav"], key="ann_audio")
-            ann_label = st.text_input("Speaker label :red[*]", "Talker 1",
+            ann_label = st.text_input("Speaker label :green[*]", "Talker 1",
                                       key="ann_label")
         with ac2:
-            ann_xlsx = st.file_uploader("Annotation (.xlsx) :red[*]",
+            ann_xlsx = st.file_uploader("Annotation (.xlsx) :green[*]",
                                         type=["xlsx"], key="ann_xlsx")
             ann_mf = st.number_input("Formant ceiling (Hz)", 3000, 7000, 5000,
                                      step=100, key="ann_mf")
