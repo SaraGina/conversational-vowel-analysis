@@ -90,7 +90,8 @@ def annotate(results, sets, set_words, core_all, vocab, speaker_a, speaker_b,
         # The timestamps are that longer token's, so the word and vowel
         # boundaries need checking against the audio before the row is used.
         r["HeardAs"] = r.get("HeardAs") or ""
-        r["Boundaries"] = "PARTIAL" if r["HeardAs"] else ""
+        if not r.get("Boundaries"):
+            r["Boundaries"] = "PARTIAL" if r["HeardAs"] else ""
 
         # E - flag rows that fall inside a scheduled black screen
         r["BlackScreen"] = ""
@@ -137,10 +138,14 @@ def write_excel(results, out_path):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Sheet1"
-    ws.append(COLUMN_ORDER)
+    # the refined-boundary columns only exist on the annotation route
+    cols = list(COLUMN_ORDER) + [
+        c for c in ("Onset_refined", "Offset_refined", "F1_refined", "F2_refined")
+        if any(c in r for r in results)]
+    ws.append(cols)
     for c in ws[1]:
         c.font = Font(bold=True)
     for r in results:
-        ws.append([r.get(col) for col in COLUMN_ORDER])
+        ws.append([r.get(col) for col in cols])
     wb.save(out_path)
     print(f"\nDone. {len(results)} token(s) -> {out_path}")

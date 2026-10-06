@@ -83,6 +83,54 @@ token starts a new segment — so a first discussion of *sheep/ship* is separate
 from a later return to it. It does not mark a change of word pair: each pair is
 segmented on its own. The browser app uses a fixed value and does not expose it.
 
+## Measuring words that are already located
+
+A study that has already been annotated by hand does not need the first three
+stages. Naming an annotation file in the config reads the word list from it and
+starts at the measurement:
+
+```yaml
+annotations: my_annotation.xlsx   # in Input/ or Output/
+
+speaker_A:
+  audio: recording.wav
+  label: Talker 1
+  max_formant: 5000
+```
+
+`speaker_B` can be left out, so **a single recording is enough** — the two
+microphones are only needed to work out who spoke, which the annotation
+already says.
+
+The sheet needs a column naming the word (`Word`, `Trial_word`,
+`Intended_word`, `Target`, `Token`) and one giving its onset in seconds
+(`Onset`, `Word_Start`, `Start`, `tStart`). Two more are used where present: an
+end (`Offset`, `Word_End`, `End`, `tEnd`) and a speaker (`Speaker`,
+`Participant`, `Talker`), whose values must match the labels in the config. A
+row whose end is missing is given a short window from its onset, its boundaries
+are found by silence detection inside it, and it is marked `FROM ONSET` in the
+`Boundaries` column.
+
+**The boundaries given are kept as they are.** Where an end is supplied, the
+vowel is looked for inside exactly that interval and nothing is adjusted
+behind the annotator's back.
+
+Every word is then measured a **second** time with the boundaries refined, and
+that result is reported alongside in `Onset_refined`, `Offset_refined`,
+`F1_refined` and `F2_refined`. These are a check rather than a competing
+answer, and most of the time they agree with the first measurement: refinement
+only moves a boundary when it finds a silence inside the margin, and an
+annotator who cut tightly leaves nothing to move. Where they differ, the
+difference is how much the placement of the word boundary moved F1 and F2 —
+which is otherwise impossible to tell apart from a disagreement about the
+measurement itself.
+
+The measurement is the same code on both routes, so a result obtained this way
+and one obtained from the recordings are directly comparable. What this route
+does **not** do is find anything: the token list is the annotation's, so it
+reports on the consistency of an existing annotation, never on its
+completeness. Finding words the annotator missed needs the full pipeline.
+
 ## The output columns
 
 Each row carries `Onset`, `Offset`, word and vowel duration, their ratio, F1

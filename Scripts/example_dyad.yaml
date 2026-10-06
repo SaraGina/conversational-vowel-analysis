@@ -33,6 +33,13 @@ pairs:
 segment_gap: 45          # gap (s) between two tokens of the SAME pair
                          # that starts a new discussion segment for it
 
+# Optional: measure words that are already located, instead of searching for
+# them. With this line the first three stages are skipped: no transcription,
+# no word search, no speaker assignment - so one recording is enough and
+# speaker_B can be left out. The Excel needs a word column and an onset
+# column; an end column is used where it is there.
+# annotations: my_annotation.xlsx
+
 # Optional: an existing manual annotation to compare against, in Output/.
 # Omit the line to skip the comparison.
 # human_excel: manual_annotation.xlsx

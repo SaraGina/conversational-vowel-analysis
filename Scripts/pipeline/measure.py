@@ -18,9 +18,13 @@ F2_BANDWIDTH_MAX = 400.0
 VOWEL_STEP = 0.005
 
 
-def _measure_token(snd_full, t1, t2, max_formant):
+def _measure_token(snd_full, t1, t2, max_formant, refine=True):
     """Measures one word: finds where it starts and ends, finds the vowel
-    inside it, and takes F1, F2 and the durations."""
+    inside it, and takes F1, F2 and the durations.
+
+    With refine off the given boundaries are kept as they are, for a caller
+    that brings its own and wants the vowel looked for inside exactly those.
+    """
     total = snd_full.get_total_duration()
     e1, e2 = max(0.0, t1 - MARGIN), min(total, t2 + MARGIN)
     snd = snd_full.extract_part(e1, e2, parselmouth.WindowShape.RECTANGULAR,
@@ -31,21 +35,23 @@ def _measure_token(snd_full, t1, t2, max_formant):
         snd = call(snd, "Extract one channel", 1)
 
     # refine word boundaries by silence detection
-    tg = call(snd, "To TextGrid (silences)", 100, 0.0, -25.0, 0.05, 0.05,
-              "", "sound")
-    n_int = call(tg, "Get number of intervals", 1)
-    tmid0 = (t1 + t2) / 2
-    onset, offset, best_ov = t1, t2, 0.0
-    for k in range(1, n_int + 1):
-        if call(tg, "Get label of interval", 1, k) != "sound":
-            continue
-        ks = call(tg, "Get start time of interval", 1, k)
-        ke = call(tg, "Get end time of interval", 1, k)
-        ov = min(ke, t2) - max(ks, t1)
-        if ks <= tmid0 <= ke:
-            ov += 10
-        if ov > best_ov:
-            best_ov, onset, offset = ov, ks, ke
+    onset, offset = t1, t2
+    if refine:
+        tg = call(snd, "To TextGrid (silences)", 100, 0.0, -25.0, 0.05, 0.05,
+                  "", "sound")
+        n_int = call(tg, "Get number of intervals", 1)
+        tmid0 = (t1 + t2) / 2
+        best_ov = 0.0
+        for k in range(1, n_int + 1):
+            if call(tg, "Get label of interval", 1, k) != "sound":
+                continue
+            ks = call(tg, "Get start time of interval", 1, k)
+            ke = call(tg, "Get end time of interval", 1, k)
+            ov = min(ke, t2) - max(ks, t1)
+            if ks <= tmid0 <= ke:
+                ov += 10
+            if ov > best_ov:
+                best_ov, onset, offset = ov, ks, ke
 
     fm = call(snd, "To Formant (burg)", 0.0, 5.0, float(max_formant),
               0.025, 50.0)
@@ -101,7 +107,8 @@ def _measure_token(snd_full, t1, t2, max_formant):
                 F2=None if math.isnan(f2) else f2)
 
 
-def run_measurement(instances, max_formant_by_speaker):
+def run_measurement(instances, max_formant_by_speaker, refine=True,
+                    also_refined=False):
     """Measures every word, each one on the microphone it was assigned to.
 
     The formant ceiling comes from the row when the pair declared one, and
@@ -109,6 +116,11 @@ def run_measurement(instances, max_formant_by_speaker):
     way. Adds the measurements to each row, and marks with CHECK the ones
     that look unreliable - a word or vowel too short, or formants that could
     not be found.
+
+    With refine off the boundaries given on each row are kept; also_refined
+    then measures each word a second time with refinement on and stores that
+    under F1_refined and F2_refined, as a check on how much the boundaries
+    matter. The two usually agree.
     """
     by_audio = {}
     for r in instances:
@@ -124,7 +136,14 @@ def run_measurement(instances, max_formant_by_speaker):
             # a pair may carry its own ceiling; otherwise the speaker's
             mf = r.get("MaxFormant") or max_formant_by_speaker[str(r["Speaker"])]
             r["MaxFormant"] = float(mf)
-            r.update(_measure_token(snd_full, r["tStart"], r["tEnd"], mf))
+            r.update(_measure_token(snd_full, r["tStart"], r["tEnd"], mf,
+                                    refine))
+            if also_refined:
+                alt = _measure_token(snd_full, r["tStart"], r["tEnd"], mf, True)
+                r["Onset_refined"] = alt["Onset"]
+                r["Offset_refined"] = alt["Offset"]
+                r["F1_refined"] = alt["F1"]
+                r["F2_refined"] = alt["F2"]
             done += 1
             if done % 20 == 0 or done == total:
                 print(f"  measured {done}/{total} tokens", flush=True)

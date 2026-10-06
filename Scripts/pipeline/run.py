@@ -23,6 +23,7 @@ from .importer import import_transcript
 from .words import (clean, find_words, expand_words, default_dict_path,
                     NO_WORD_SPACING,
                     LANGUAGES)
+from .annotations import read_annotations
 from .speaker import assign_speaker
 from .measure import run_measurement
 from .analyze import annotate, load_vocab, write_excel
@@ -114,7 +115,11 @@ def _config_problem(cfg):
     """Describes what is wrong with a config, or returns None if it is fine.
 
     """
-    for key in ("speaker_A", "speaker_B"):
+    # the annotation route measures words that are already located, so one
+    # recording is enough and there is nothing to compare between microphones
+    needed = (("speaker_A",) if cfg.get("annotations")
+              else ("speaker_A", "speaker_B"))
+    for key in needed:
         block = cfg.get(key)
         if not isinstance(block, dict):
             return (f"'{key}' is missing or was not read as a set of settings. "
@@ -128,6 +133,8 @@ def _config_problem(cfg):
         return (f"'language: {lang}' is not one of the languages this copy "
                 f"knows: {', '.join(sorted(LANGUAGES))}.")
     pairs = cfg.get("pairs")
+    if cfg.get("annotations") and not pairs:
+        return None          # the words come from the annotation instead
     if not isinstance(pairs, dict) or not pairs:
         return ("'pairs' is missing or was not read as a list of word pairs. "
                 "Each line should look like  sheep_ship: [sheep, ship]  "
@@ -175,6 +182,62 @@ def main():
         sys.exit(f"ERROR: {exc}")
 
 
+def run_annotations(cfg):
+    """Measures the words an annotation Excel already locates.
+
+    Stages 1-3 exist only to produce a list of words with their times and
+    their speaker. Here that list is read instead, and everything from the
+    measurement on is the same code, so a result from this route and one from
+    the recordings can be compared directly.
+
+    The boundaries given are kept as they are. Each word is also measured a
+    second time with the boundaries refined, under F1_refined and F2_refined,
+    so the effect of where the word was cut can be seen rather than assumed.
+
+    Gives back the path of the Excel it wrote.
+    """
+    A = cfg["speaker_A"]
+    label_a = str(A["label"])
+    audio_by_speaker = {label_a: _find_file(A["audio"], AUDIO_DIRS)}
+    max_formant = {label_a: A.get("max_formant", 5500)}
+    B = cfg.get("speaker_B")
+    label_b = label_a
+    if isinstance(B, dict) and B.get("audio") and B.get("label"):
+        label_b = str(B["label"])
+        audio_by_speaker[label_b] = _find_file(B["audio"], AUDIO_DIRS)
+        max_formant[label_b] = B.get("max_formant", 5500)
+
+    path = _find_file(str(cfg["annotations"]), [INPUT, OUTPUT])
+    inst = read_annotations(path, audio_by_speaker, label_a)
+
+    parsed = _parse_pairs(cfg.get("pairs") or {})
+    sets = [(name, ws) for name, ws, _ in parsed]
+    set_words = [{clean(w) for w in ws} for _, ws, _ in parsed]
+    for r in inst:
+        word = clean(r["Word"])
+        for sw, (_, _, mf) in zip(set_words, parsed):
+            if mf is not None and word in sw:
+                r["MaxFormant"] = float(mf)
+                break
+
+    # every word here was named by hand, so none of them is a spelling the
+    # search had to guess at: nothing on this route is a VARIANT
+    core_all = ({clean(r["Word"]) for r in inst}
+                | {w for sw in set_words for w in sw})
+
+    results = run_measurement(inst, max_formant, refine=False,
+                              also_refined=True)
+    vocab = load_vocab(os.path.join(INPUT, "master_vocab.csv"))
+    results = annotate(results, sets, set_words, core_all, vocab,
+                       label_a, label_b,
+                       segment_gap=cfg.get("segment_gap", 45),
+                       blackscreen=cfg.get("blackscreen"))
+    out_xlsx = os.path.join(
+        OUTPUT, os.path.splitext(os.path.basename(path))[0] + "_measured.xlsx")
+    write_excel(results, out_xlsx)
+    return out_xlsx
+
+
 def run_config(cfg):
     """Runs the whole pipeline once the settings are known.
 
@@ -186,6 +249,11 @@ def run_config(cfg):
     """
     # make the Output folder if it is not there yet
     os.makedirs(OUTPUT, exist_ok=True)
+
+    # an annotation that already locates the words skips the first three
+    # stages and goes straight to the measurement
+    if cfg.get("annotations"):
+        return run_annotations(cfg)
 
     A, B = cfg["speaker_A"], cfg["speaker_B"]
     audio_a = _find_file(A["audio"], AUDIO_DIRS)

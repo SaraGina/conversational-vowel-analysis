@@ -93,6 +93,13 @@ pairs:
 Transcription takes roughly 10 minutes per 50 minutes of audio, once per
 recording. Everything runs locally; no audio leaves the machine.
 
+### Option C — measure words that are already annotated
+
+A study already annotated by hand can skip the first three stages: name an
+annotation Excel in the config and the pipeline reads the word list from it
+and measures. One recording is enough, since the annotation already says who
+spoke. See [DOCUMENTATION.md](DOCUMENTATION.md).
+
 ## What comes out
 
 Written to `Output/`:
