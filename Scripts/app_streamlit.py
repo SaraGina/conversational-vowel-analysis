@@ -15,7 +15,18 @@ import traceback
 
 import streamlit as st
 
-st.set_page_config(page_title="Dyad pipeline", page_icon="🎙️", layout="centered")
+st.set_page_config(page_title="Dyad pipeline", page_icon="🎙️", layout="wide")
+
+# A wider column than the default, but still narrow enough for the text to be
+# read comfortably, and a larger base size than Streamlit's own.
+st.markdown("""<style>
+.block-container {max-width: 1150px; padding-top: 2.5rem;}
+html, body, [class*="st-"] {font-size: 17px;}
+h1 {font-size: 2.3rem !important;}
+h2 {font-size: 1.7rem !important;}
+h3 {font-size: 1.35rem !important;}
+label p, .stMarkdown p {font-size: 1.02rem !important;}
+</style>""", unsafe_allow_html=True)
 
 # --- import the pipeline; if a library is broken, show a friendly page ------
 try:
@@ -90,33 +101,35 @@ If F1 and F2 look implausible for a speaker, this is the first setting to
 change."""
 
 
-lang_col, _ = st.columns([1, 2])
-with lang_col:
-    language = st.selectbox(
-        # English first: it is the default, and the only one with a dictionary
-        "Language of the recordings", list(LANGUAGES),
-        format_func=lambda c: LANGUAGES[c],
-        help="What the recogniser is told to transcribe. A language without a "
-             "pronunciation dictionary still runs, but the search then uses "
-             "the words exactly as written.")
-if not os.path.isfile(os.path.join(INPUT, DICTIONARIES.get(language, ""))):
-    st.info(f"No pronunciation dictionary for {LANGUAGES[language]} yet \u2014 "
-            "words will be searched exactly as written, without the "
-            "spelling-variant recovery.")
+with st.container(border=True):
+    st.subheader("Speakers")
+    lang_col, _ = st.columns([1, 2])
+    with lang_col:
+        language = st.selectbox(
+            # English first: it is the default, and the only one with a dictionary
+            "Language of the recordings", list(LANGUAGES),
+            format_func=lambda c: LANGUAGES[c],
+            help="What the recogniser is told to transcribe. A language without a "
+                 "pronunciation dictionary still runs, but the search then uses "
+                 "the words exactly as written.")
+    if not os.path.isfile(os.path.join(INPUT, DICTIONARIES.get(language, ""))):
+        st.info(f"No pronunciation dictionary for {LANGUAGES[language]} yet \u2014 "
+                "words will be searched exactly as written, without the "
+                "spelling-variant recovery.")
 
-col1, col2 = st.columns(2)
-with col1:
-    st.subheader("Speaker A (native)")
-    up_a = st.file_uploader("Recording — own mic (.wav)", type=["wav"], key="ua")
-    label_a = st.text_input("Label", "Confederate")
-    mf_a = st.number_input("Formant ceiling (Hz)", 4000, 6000, 5000, step=100,
-                           key="fa", help=MF_HELP)
-with col2:
-    st.subheader("Speaker B (nonnative)")
-    up_b = st.file_uploader("Recording — own mic (.wav)", type=["wav"], key="ub")
-    label_b = st.text_input("Label", "Participant")
-    mf_b = st.number_input("Formant ceiling (Hz)", 4000, 6000, 5500, step=100,
-                           key="fb", help=MF_HELP)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**Speaker A** · native")
+        up_a = st.file_uploader("Recording — own mic (.wav)", type=["wav"], key="ua")
+        label_a = st.text_input("Label", "Confederate")
+        mf_a = st.number_input("Formant ceiling (Hz)", 4000, 6000, 5000, step=100,
+                               key="fa", help=MF_HELP)
+    with col2:
+        st.markdown("**Speaker B** · nonnative")
+        up_b = st.file_uploader("Recording — own mic (.wav)", type=["wav"], key="ub")
+        label_b = st.text_input("Label", "Participant")
+        mf_b = st.number_input("Formant ceiling (Hz)", 4000, 6000, 5500, step=100,
+                               key="fb", help=MF_HELP)
 
 # --- suggest linguistic features from the bundled pronunciation dictionary --
 # ARPAbet -> IPA. Used only to pre-fill the form; the user always confirms.
@@ -253,96 +266,96 @@ def read_vocab_rows():
         return []
 
 
-st.subheader("Minimal pairs")
-st.caption("**You choose the words here.** The pipeline will search the two "
-           "recordings for exactly these words and measure every instance it "
-           "finds. Edit any cell, remove a pair with its 🗑️ button, or add "
-           "your own below.")
+with st.container(border=True):
+    st.subheader("Minimal pairs")
+    st.caption("**You choose the words here.** The pipeline will search the two "
+               "recordings for exactly these words and measure every instance it "
+               "finds. Edit any cell, remove a pair with its 🗑️ button, or add "
+               "your own below.")
 
-if "pair_rows" not in st.session_state:
-    st.session_state.pair_rows = [
-        {"id": i, "name": n, "w1": w1, "w2": w2}
-        for i, (n, w1, w2) in enumerate(DEFAULT_PAIRS)]
-    st.session_state.next_id = len(DEFAULT_PAIRS)
-
-
-def add_pair():
-    st.session_state.pair_rows.append(
-        {"id": st.session_state.next_id, "name": "", "w1": "", "w2": ""})
-    st.session_state.next_id += 1
+    if "pair_rows" not in st.session_state:
+        st.session_state.pair_rows = [
+            {"id": i, "name": n, "w1": w1, "w2": w2}
+            for i, (n, w1, w2) in enumerate(DEFAULT_PAIRS)]
+        st.session_state.next_id = len(DEFAULT_PAIRS)
 
 
-def del_pair(pid):
-    st.session_state.pair_rows = [
-        r for r in st.session_state.pair_rows if r["id"] != pid]
+    def add_pair():
+        st.session_state.pair_rows.append(
+            {"id": st.session_state.next_id, "name": "", "w1": "", "w2": ""})
+        st.session_state.next_id += 1
 
 
-hc1, hc2, hc3, hc4, hc5, hc6 = st.columns([3, 2.4, 1.6, 2.4, 1.6, 0.8])
-hc1.markdown("**Pair name**")
-hc2.markdown("**Word 1**")
-hc3.markdown("")
-hc4.markdown("**Word 2**")
-hc5.markdown("")
-unresolved = []
-for r in st.session_state.pair_rows:
-    c1, c2, c3, c4, c5, c6 = st.columns([3, 2.4, 1.6, 2.4, 1.6, 0.8])
-    r["name"] = c1.text_input("name", r["name"], key=f"pn{r['id']}",
-                              label_visibility="collapsed",
-                              placeholder="e.g. sheep_ship")
-    r["w1"] = c2.text_input("w1", r["w1"], key=f"pw1{r['id']}",
-                            label_visibility="collapsed", placeholder="word 1")
-    r["w2"] = c4.text_input("w2", r["w2"], key=f"pw2{r['id']}",
-                            label_visibility="collapsed", placeholder="word 2")
-    for word, col in ((r["w1"], c3), (r["w2"], c5)):
-        if not word.strip():
-            continue
-        v, t, e, src = resolve_features(word)
-        if src == "none":
-            col.markdown(f"<span style='color:#c0392b'>? &nbsp;{word}</span>",
-                         unsafe_allow_html=True)
-            unresolved.append(word.strip())
-        else:
-            col.markdown(
-                f"<span style='color:#888'>{v or '-'} &nbsp;{t or ''}"
-                f"<br>{e or ''}</span>", unsafe_allow_html=True)
-    c6.button("🗑️", key=f"pd{r['id']}", on_click=del_pair, args=(r["id"],),
-              help="Remove this pair")
-st.caption(
-    "The grey text beside each word is its vowel, tensity and consonant "
-    "environment. To set these yourself, edit that word's row in "
-    "`Input/master_vocab.csv` and reload this page - words already listed "
-    "there are always used as written.",
-    help=CSV_HELP)
-if unresolved:
-    st.warning(
-        "No pronunciation found for: **" + ", ".join(unresolved) + "**. "
-        "These words will still be searched for and measured, but the Pair, "
-        "Vowel, Tensity and Env columns will be empty. Add them by hand to "
-        "`Input/master_vocab.csv` if you need those columns.")
-st.button("➕ Add a pair", on_click=add_pair)
-pairs_rows = [{"pair name": r["name"], "word 1": r["w1"], "word 2": r["w2"]}
-              for r in st.session_state.pair_rows]
+    def del_pair(pid):
+        st.session_state.pair_rows = [
+            r for r in st.session_state.pair_rows if r["id"] != pid]
 
-st.subheader("Options")
-uh_col, _ = st.columns([1, 1])
-with uh_col:
-    up_h = st.file_uploader("Human annotation Excel — optional, enables the "
-                            "system-vs-human comparison (.xlsx)",
-                            type=["xlsx"])
-seg_gap = st.number_input(
-    "Segment gap (s)", 5, 300, 45,
-    help="Groups each pair's tokens into discussion episodes (the Segment "
-         "column): if more than this many seconds pass without any token of "
-         "a pair, its next token starts a new segment - e.g. the first "
-         "discussion of pool/pull vs a later revisit.")
-w1c, w2c = st.columns(2)
-win_start = w1c.number_input(
-    "Analysis window start (s)", 0, 100000, 0,
-    help="Ignore tokens before this time - e.g. the pre-conversation part "
-         "that annotators also exclude. Leave 0 to analyze from the start.")
-win_end = w2c.number_input(
-    "Analysis window end (s)", 0, 100000, 0,
-    help="Ignore tokens after this time. Leave 0 to analyze to the end.")
+
+    hc1, hc2, hc3, hc4, hc5, hc6 = st.columns([3, 2.4, 1.6, 2.4, 1.6, 0.8])
+    hc1.markdown("**Pair name**")
+    hc2.markdown("**Word 1**")
+    hc3.markdown("")
+    hc4.markdown("**Word 2**")
+    hc5.markdown("")
+    unresolved = []
+    for r in st.session_state.pair_rows:
+        c1, c2, c3, c4, c5, c6 = st.columns([3, 2.4, 1.6, 2.4, 1.6, 0.8])
+        r["name"] = c1.text_input("name", r["name"], key=f"pn{r['id']}",
+                                  label_visibility="collapsed",
+                                  placeholder="e.g. sheep_ship")
+        r["w1"] = c2.text_input("w1", r["w1"], key=f"pw1{r['id']}",
+                                label_visibility="collapsed", placeholder="word 1")
+        r["w2"] = c4.text_input("w2", r["w2"], key=f"pw2{r['id']}",
+                                label_visibility="collapsed", placeholder="word 2")
+        for word, col in ((r["w1"], c3), (r["w2"], c5)):
+            if not word.strip():
+                continue
+            v, t, e, src = resolve_features(word)
+            if src == "none":
+                col.markdown(f"<span style='color:#c0392b'>? &nbsp;{word}</span>",
+                             unsafe_allow_html=True)
+                unresolved.append(word.strip())
+            else:
+                col.markdown(
+                    f"<span style='color:#888'>{v or '-'} &nbsp;{t or ''}"
+                    f"<br>{e or ''}</span>", unsafe_allow_html=True)
+        c6.button("🗑️", key=f"pd{r['id']}", on_click=del_pair, args=(r["id"],),
+                  help="Remove this pair")
+    st.caption(
+        "The grey text beside each word is its vowel, tensity and consonant "
+        "environment. To set these yourself, edit that word's row in "
+        "`Input/master_vocab.csv` and reload this page - words already listed "
+        "there are always used as written.",
+        help=CSV_HELP)
+    if unresolved:
+        st.warning(
+            "No pronunciation found for: **" + ", ".join(unresolved) + "**. "
+            "These words will still be searched for and measured, but the Pair, "
+            "Vowel, Tensity and Env columns will be empty. Add them by hand to "
+            "`Input/master_vocab.csv` if you need those columns.")
+    st.button("➕ Add a pair", on_click=add_pair)
+    pairs_rows = [{"pair name": r["name"], "word 1": r["w1"], "word 2": r["w2"]}
+                  for r in st.session_state.pair_rows]
+
+with st.container(border=True):
+    st.subheader("Options")
+    uh_col, _ = st.columns([1, 1])
+    with uh_col:
+        up_h = st.file_uploader("Human annotation Excel — optional, enables the "
+                                "system-vs-human comparison (.xlsx)",
+                                type=["xlsx"])
+    # Groups each pair's tokens into discussion episodes (the Segment column): if
+    # more than this many seconds pass without any token of a pair, its next token
+    # starts a new segment. Not asked for here; the config file can override it.
+    SEGMENT_GAP = 45
+    w1c, w2c = st.columns(2)
+    win_start = w1c.number_input(
+        "Analysis window start (s)", 0, 100000, 0,
+        help="Ignore tokens before this time - e.g. the pre-conversation part "
+             "that annotators also exclude. Leave 0 to analyze from the start.")
+    win_end = w2c.number_input(
+        "Analysis window end (s)", 0, 100000, 0,
+        help="Ignore tokens after this time. Leave 0 to analyze to the end.")
 
 if st.button("▶ Run pipeline", type="primary", use_container_width=True):
     if up_a is None or up_b is None:
@@ -388,7 +401,7 @@ if st.button("▶ Run pipeline", type="primary", use_container_width=True):
                       "max_formant": mf_a},
         "speaker_B": {"audio": os.path.basename(audio_b), "label": label_b,
                       "max_formant": mf_b},
-        "pairs": pairs, "segment_gap": seg_gap, "language": language,
+        "pairs": pairs, "segment_gap": SEGMENT_GAP, "language": language,
         "analysis_start": win_start, "analysis_end": win_end,
     }
     if human_name:
