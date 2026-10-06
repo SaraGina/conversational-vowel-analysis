@@ -104,9 +104,11 @@ def _measure_token(snd_full, t1, t2, max_formant):
 def run_measurement(instances, max_formant_by_speaker):
     """Measures every word, each one on the microphone it was assigned to.
 
-    Adds the measurements to each row, and marks with CHECK the ones that look
-    unreliable - a word or vowel too short, or formants that could not be
-    found.
+    The formant ceiling comes from the row when the pair declared one, and
+    from the speaker otherwise; the value used is written to the row either
+    way. Adds the measurements to each row, and marks with CHECK the ones
+    that look unreliable - a word or vowel too short, or formants that could
+    not be found.
     """
     by_audio = {}
     for r in instances:
@@ -119,7 +121,9 @@ def run_measurement(instances, max_formant_by_speaker):
         print(f"  loading audio: {os.path.basename(audio)}", flush=True)
         snd_full = parselmouth.Sound(audio)
         for r in rows:
-            mf = max_formant_by_speaker[str(r["Speaker"])]
+            # a pair may carry its own ceiling; otherwise the speaker's
+            mf = r.get("MaxFormant") or max_formant_by_speaker[str(r["Speaker"])]
+            r["MaxFormant"] = float(mf)
             r.update(_measure_token(snd_full, r["tStart"], r["tEnd"], mf))
             done += 1
             if done % 20 == 0 or done == total:

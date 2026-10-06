@@ -1,6 +1,6 @@
 # Example dyad config - copy this file, rename it, and edit.
 
-# Language of the recordings: en (English) or da (Danish).
+# Language of the recordings: en (English), da (Danish) or ja (Japanese).
 # Leave it out and English is used. A language without a pronunciation
 # dictionary in Input/ still runs, but the words are then searched exactly as
 # written, without recovering the spellings the recogniser may invent.
@@ -18,10 +18,17 @@ speaker_B:
   max_formant: 5500
 
 # The words to search for. Each entry is a name and the two words of the pair.
+# A pair whose vowels need a different analysis band can carry its own formant
+# ceiling, written in the longer form below; without one, the speaker's value
+# above is used. Praat looks for the same five formants inside whatever band it
+# is given, so lowering the ceiling changes the model and not only the range.
+# The ceiling used is written beside every measurement in the output.
 pairs:
   sheep_ship:  [sheep, ship]
   meal_mill:   [meal, mill]
-  pool_pull:   [pool, pull]
+  pool_pull:
+    words: [pool, pull]
+    max_formant: 4000
 
 segment_gap: 45          # gap (s) between two tokens of the SAME pair
                          # that starts a new discussion segment for it

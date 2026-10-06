@@ -17,7 +17,7 @@ COLUMN_ORDER = [
     "Production_Confederate", "Production_Participant",
     "Timestamp", "Onset", "Offset", "WordDuration",
     "VowelStart", "VowelEnd", "VowelDuration", "Ratio",
-    "Vowel", "Tensity", "Env", "F1", "F1_Bark", "F2", "F2_Bark",
+    "Vowel", "Tensity", "Env", "F1", "F1_Bark", "F2", "F2_Bark", "MaxFormant",
     "BlackScreen", "Segment", "WordCheck", "Check", "LabelReview", "EchoCheck",
     "Boundaries", "HeardAs",
     "LevelDiff_dB", "AudioFile", "tStart", "tEnd",

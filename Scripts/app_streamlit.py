@@ -275,14 +275,15 @@ with st.container(border=True):
 
     if "pair_rows" not in st.session_state:
         st.session_state.pair_rows = [
-            {"id": i, "name": n, "w1": w1, "w2": w2}
+            {"id": i, "name": n, "w1": w1, "w2": w2, "mf": ""}
             for i, (n, w1, w2) in enumerate(DEFAULT_PAIRS)]
         st.session_state.next_id = len(DEFAULT_PAIRS)
 
 
     def add_pair():
         st.session_state.pair_rows.append(
-            {"id": st.session_state.next_id, "name": "", "w1": "", "w2": ""})
+            {"id": st.session_state.next_id, "name": "", "w1": "", "w2": "",
+             "mf": ""})
         st.session_state.next_id += 1
 
 
@@ -291,15 +292,18 @@ with st.container(border=True):
             r for r in st.session_state.pair_rows if r["id"] != pid]
 
 
-    hc1, hc2, hc3, hc4, hc5, hc6 = st.columns([3, 2.4, 1.6, 2.4, 1.6, 0.8])
+    hc1, hc2, hc3, hc4, hc5, hc6, hc7 = st.columns(
+        [3, 2.4, 1.6, 2.4, 1.6, 1.4, 0.8])
     hc1.markdown("**Pair name**")
     hc2.markdown("**Word 1**")
     hc3.markdown("")
     hc4.markdown("**Word 2**")
     hc5.markdown("")
+    hc6.markdown("**Ceiling**")
     unresolved = []
     for r in st.session_state.pair_rows:
-        c1, c2, c3, c4, c5, c6 = st.columns([3, 2.4, 1.6, 2.4, 1.6, 0.8])
+        c1, c2, c3, c4, c5, c6, c7 = st.columns(
+            [3, 2.4, 1.6, 2.4, 1.6, 1.4, 0.8])
         r["name"] = c1.text_input("name", r["name"], key=f"pn{r['id']}",
                                   label_visibility="collapsed",
                                   placeholder="e.g. sheep_ship")
@@ -319,7 +323,10 @@ with st.container(border=True):
                 col.markdown(
                     f"<span style='color:#888'>{v or '-'} &nbsp;{t or ''}"
                     f"<br>{e or ''}</span>", unsafe_allow_html=True)
-        c6.button("🗑️", key=f"pd{r['id']}", on_click=del_pair, args=(r["id"],),
+        r["mf"] = c6.text_input("mf", r.get("mf", ""), key=f"pm{r['id']}",
+                                label_visibility="collapsed",
+                                placeholder="auto")
+        c7.button("🗑️", key=f"pd{r['id']}", on_click=del_pair, args=(r["id"],),
                   help="Remove this pair")
     st.caption(
         "The grey text beside each word is its vowel, tensity and consonant "
@@ -333,8 +340,17 @@ with st.container(border=True):
             "These words will still be searched for and measured, but the Pair, "
             "Vowel, Tensity and Env columns will be empty. Add them by hand to "
             "`Input/master_vocab.csv` if you need those columns.")
+    st.caption(
+        "**Ceiling** is the formant ceiling in Hz for this pair alone. Left on "
+        "*auto* it uses the speaker's value above. Set it for a pair whose "
+        "vowels need a different analysis band - back vowels are often read "
+        "better below 4500 Hz. Praat looks for the same five formants inside "
+        "whatever band it is given, so lowering the ceiling changes the model "
+        "and not only the range. The value used is written beside every "
+        "measurement in the output.")
     st.button("➕ Add a pair", on_click=add_pair)
-    pairs_rows = [{"pair name": r["name"], "word 1": r["w1"], "word 2": r["w2"]}
+    pairs_rows = [{"pair name": r["name"], "word 1": r["w1"], "word 2": r["w2"],
+                   "ceiling": r.get("mf", "")}
                   for r in st.session_state.pair_rows]
 
 with st.container(border=True):
@@ -369,12 +385,26 @@ if st.button("▶ Run pipeline", type="primary", use_container_width=True):
                  "needs the two separate recordings of one conversation, one "
                  "per speaker.")
         st.stop()
-    pairs = {r["pair name"]: [r["word 1"], r["word 2"]]
-             for r in pairs_rows
-             if r.get("pair name") and r.get("word 1") and r.get("word 2")}
-    if not pairs:
+    valid = [r for r in pairs_rows
+             if r.get("pair name") and r.get("word 1") and r.get("word 2")]
+    if not valid:
         st.error("Define at least one minimal pair.")
         st.stop()
+    # words alone, for the vocabulary work below
+    pairs = {r["pair name"]: [r["word 1"], r["word 2"]] for r in valid}
+    # and the form the config takes, which carries a pair's own ceiling
+    cfg_pairs = {}
+    for r in valid:
+        mf = str(r.get("ceiling", "")).strip()
+        if mf:
+            try:
+                cfg_pairs[r["pair name"]] = {
+                    "words": [r["word 1"], r["word 2"]], "max_formant": float(mf)}
+            except ValueError:
+                st.error(f"The ceiling for '{r['pair name']}' is not a number.")
+                st.stop()
+        else:
+            cfg_pairs[r["pair name"]] = [r["word 1"], r["word 2"]]
 
     auto_rows = []
     for _name, (_w1, _w2) in pairs.items():
@@ -401,7 +431,7 @@ if st.button("▶ Run pipeline", type="primary", use_container_width=True):
                       "max_formant": mf_a},
         "speaker_B": {"audio": os.path.basename(audio_b), "label": label_b,
                       "max_formant": mf_b},
-        "pairs": pairs, "segment_gap": SEGMENT_GAP, "language": language,
+        "pairs": cfg_pairs, "segment_gap": SEGMENT_GAP, "language": language,
         "analysis_start": win_start, "analysis_end": win_end,
     }
     if human_name:

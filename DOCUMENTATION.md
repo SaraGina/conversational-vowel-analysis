@@ -45,6 +45,33 @@ for higher ones. Set it too low and a formant is missed; too high and the
 tracker may split one formant in two. It is the one setting worth checking per
 speaker.
 
+**A pair's own `max_formant`.** A pair whose vowels need a different analysis
+band can declare its own ceiling, and its tokens are then measured with that
+value instead of the speaker's:
+
+```yaml
+pairs:
+  sheep_ship: [sheep, ship]
+  pool_pull:
+    words: [pool, pull]
+    max_formant: 4000
+```
+
+Back vowels are often read better below 4500 Hz, because F1 and F2 sit low and
+close together and a wide band invites the tracker to put F2 where F3 is. Praat
+looks for the same five formants inside whatever band it is given, so lowering
+the ceiling changes the model and not only the range.
+
+The ceiling is declared **per pair, never per vowel.** Both members of a pair
+share it, so the setting cannot favour one member of the contrast over the
+other — which it would if the ceiling followed the vowel the token is thought
+to be.
+
+Because the ceiling may differ between pairs, F1 and F2 are not strictly
+comparable *across* pairs measured with different values. The `MaxFormant`
+column records the value used for every row, so this stays visible rather than
+hidden in a settings file.
+
 **`human_excel`** points at a manual annotation placed in `Output/`, to produce
 the optional comparison file. `Input/manual_annotation_template.xlsx` shows the
 columns expected, with a description of each on its second sheet; an existing

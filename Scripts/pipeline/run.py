@@ -94,6 +94,22 @@ def _transcript_for(audio_path, cfg_spk, language="en"):
     return json_path
 
 
+def _parse_pairs(pairs):
+    """(name, [word, word], ceiling or None) for every pair in the config.
+
+    A pair is written either as  name: [word, word]  or, when it needs its
+    own formant ceiling,  name: {words: [word, word], max_formant: 4000}.
+    """
+    out = []
+    for name, spec in pairs.items():
+        if isinstance(spec, dict):
+            out.append((name, [str(w) for w in spec.get("words") or []],
+                        spec.get("max_formant")))
+        else:
+            out.append((name, [str(w) for w in spec or []], None))
+    return out
+
+
 def _config_problem(cfg):
     """Describes what is wrong with a config, or returns None if it is fine.
 
@@ -116,10 +132,16 @@ def _config_problem(cfg):
         return ("'pairs' is missing or was not read as a list of word pairs. "
                 "Each line should look like  sheep_ship: [sheep, ship]  "
                 "- note the space after the colon.")
-    for pair_name, words in pairs.items():
-        if not isinstance(words, list) or len(words) != 2:
+    for pair_name, words, ceiling in _parse_pairs(pairs):
+        if len(words) != 2:
             return (f"pair '{pair_name}' should name exactly two words, "
                     "as in  sheep_ship: [sheep, ship]")
+        if ceiling is not None:
+            try:
+                float(ceiling)
+            except (TypeError, ValueError):
+                return (f"pair '{pair_name}' has a 'max_formant' that is not "
+                        "a number.")
     return None
 
 
@@ -188,7 +210,9 @@ def run_config(cfg):
     tokens = (import_transcript(ts_a, label_a)
               + import_transcript(ts_b, label_b))
 
-    sets = [(name, [str(w) for w in ws]) for name, ws in cfg["pairs"].items()]
+    parsed = _parse_pairs(cfg["pairs"])
+    sets = [(name, ws) for name, ws, _ in parsed]
+    set_ceilings = [mf for _, _, mf in parsed]
     # the words exactly as declared: anything found outside this set was
     # reached through a neighbour spelling, and gets flagged VARIANT
     core_all = {clean(w) for _, ws in sets for w in ws}
@@ -226,6 +250,13 @@ def run_config(cfg):
 
     # B- speaker assignment + acoustic measurement 
     inst = assign_speaker(matches, audio_a, audio_b, label_a, label_b)
+    # a pair that declared its own ceiling passes it to its own tokens
+    for r in inst:
+        comp = {clean(w) for w in str(r["Word"]).split("/")}
+        for sw, mf in zip(set_words, set_ceilings):
+            if mf is not None and comp & sw:
+                r["MaxFormant"] = float(mf)
+                break
     max_formant = {label_a: A.get("max_formant", 5500),
                    label_b: B.get("max_formant", 5500)}
     results = run_measurement(inst, max_formant)
