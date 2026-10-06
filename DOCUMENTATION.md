@@ -102,14 +102,27 @@ speaker_A:
 microphones are only needed to work out who spoke, which the annotation
 already says.
 
-The sheet needs a column naming the word (`Word`, `Trial_word`,
-`Intended_word`, `Target`, `Token`) and one giving its onset in seconds
-(`Onset`, `Word_Start`, `Start`, `tStart`). Two more are used where present: an
-end (`Offset`, `Word_End`, `End`, `tEnd`) and a speaker (`Speaker`,
-`Participant`, `Talker`), whose values must match the labels in the config. A
-row whose end is missing is given a short window from its onset, its boundaries
-are found by silence detection inside it, and it is marked `FROM ONSET` in the
-`Boundaries` column.
+Four kinds of annotation are read:
+
+| File | How it is read |
+|---|---|
+| `.TextGrid` | Every labelled interval of one tier. By default the first interval tier that has any labelled interval — in a TextGrid this pipeline wrote, that is the word tier. `annotation_tier:` in the config names a different one. |
+| `.xlsx` | The first sheet that names a word column and an onset column. |
+| `.csv` `.tsv` `.txt` | The same, by column name, with the separator detected. |
+| Audacity labels | `start`, `end`, `label` per line, with no header. Recognised by the first field being a number. |
+
+For the table-shaped files, the word column may be called `Word`,
+`Trial_word`, `Intended_word`, `Target`, `Token`, `Label` or `Text`, and the
+onset column `Onset`, `Word_Start`, `Start`, `tStart`, `Begin` or `tmin`. Two
+more are used where present: an end (`Offset`, `Word_End`, `End`, `tEnd`,
+`tmax`) and a speaker (`Speaker`, `Participant`, `Talker`), whose values must
+match the labels in the config.
+
+A row whose end is missing is given a short window from its onset, its
+boundaries are found by silence detection inside it, and it is marked
+`FROM ONSET` in the `Boundaries` column. A TextGrid tier name is treated as a
+hint about the speaker: it is used when it matches a label in the config, and
+simply ignored when it does not.
 
 **`pairs` is optional on this route**, since the words come from the
 annotation rather than from a search. `Pair`, `Vowel`, `Tensity` and `Env` are

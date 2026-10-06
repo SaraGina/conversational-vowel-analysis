@@ -36,9 +36,11 @@ segment_gap: 45          # gap (s) between two tokens of the SAME pair
 # Optional: measure words that are already located, instead of searching for
 # them. With this line the first three stages are skipped: no transcription,
 # no word search, no speaker assignment - so one recording is enough and
-# speaker_B can be left out. The Excel needs a word column and an onset
-# column; an end column is used where it is there.
-# annotations: my_annotation.xlsx
+# speaker_B can be left out. It reads a Praat .TextGrid, a .xlsx, a .csv/.txt
+# with a header row, or an Audacity label file; an end is used where it is
+# there, and found by silence detection where it is not.
+# annotations: my_annotation.TextGrid
+# annotation_tier: words          # only for a TextGrid with several tiers
 
 # Optional: an existing manual annotation to compare against, in Output/.
 # Omit the line to skip the comparison.

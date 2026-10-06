@@ -745,13 +745,19 @@ with tab_ann:
             ann_label = st.text_input("Speaker label :green[*]", "Talker 1",
                                       key="ann_label")
         with ac2:
-            ann_xlsx = st.file_uploader("Annotation (.xlsx) :green[*]",
-                                        type=["xlsx"], key="ann_xlsx")
+            ann_xlsx = st.file_uploader(
+                "Annotation :green[*]",
+                type=["TextGrid", "xlsx", "csv", "tsv", "txt"],
+                key="ann_xlsx",
+                help="A Praat TextGrid, a spreadsheet, a delimited text file "
+                     "with a header row, or an Audacity label file.")
             ann_mf = st.number_input("Formant ceiling (Hz)", 3000, 7000, 5000,
                                      step=100, key="ann_mf")
         st.caption(
-            "The sheet needs a column with the word and one with its onset in "
-            "seconds. An end column is used where it is there; where it is not, "
+            "**A Praat TextGrid works as it is** - the first tier with labelled "
+            "intervals is read. A sheet or a text file needs a column with the "
+            "word and one with its onset in seconds; an Audacity label file is "
+            "read as it is. An end is used where it is there; where it is not, "
             "the boundaries are found by silence detection and the row is marked "
             "FROM ONSET. Every word is also measured a second time with the "
             "boundaries refined, reported beside the first as a check - the two "

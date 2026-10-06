@@ -208,7 +208,8 @@ def run_annotations(cfg):
         max_formant[label_b] = B.get("max_formant", 5500)
 
     path = _find_file(str(cfg["annotations"]), [INPUT, OUTPUT])
-    inst = read_annotations(path, audio_by_speaker, label_a)
+    inst = read_annotations(path, audio_by_speaker, label_a,
+                            cfg.get("annotation_tier"))
 
     parsed = _parse_pairs(cfg.get("pairs") or {})
     sets = [(name, ws) for name, ws, _ in parsed]
