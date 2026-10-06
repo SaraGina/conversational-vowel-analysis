@@ -20,9 +20,9 @@ st.set_page_config(page_title="Dyad pipeline", page_icon="🎙️", layout="wide
 # A wider column than the default, but still narrow enough for the text to be
 # read comfortably, and a larger base size than Streamlit's own.
 st.markdown("""<style>
-html {font-size: 20px;}
+html {font-size: 21px;}
 .block-container {max-width: 1200px; padding-top: 2.5rem;}
-html, body, .stApp, [class*="st-"] {font-size: 20px;}
+html, body, .stApp, [class*="st-"] {font-size: 21px;}
 h1 {font-size: 2.5rem !important;}
 h2 {font-size: 1.9rem !important;}
 h3 {font-size: 1.5rem !important;}
@@ -35,9 +35,23 @@ input, textarea, select,
     font-size: 1.05rem !important;}
 .stButton button p, .stDownloadButton button p {font-size: 1.1rem !important;}
 [data-testid="stFileUploaderDropzone"] {font-size: 1.05rem !important;}
-/* the two tabs read as tabs, not as links */
-.stTabs [data-baseweb="tab"] {padding: 0.8rem 1.8rem;}
-.stTabs [data-baseweb="tab"] p {font-size: 1.45rem !important; font-weight: 600;}
+/* the two ways in read as buttons: filled green for the one in use, faded
+   for the other, and none of Streamlit's own underline */
+.stTabs [data-baseweb="tab-list"] {gap: 0.7rem; border-bottom: none;}
+.stTabs [data-baseweb="tab-highlight"],
+.stTabs [data-baseweb="tab-border"] {display: none !important;}
+.stTabs [data-baseweb="tab"] {
+    background: #e3efe7;
+    border-radius: 12px;
+    padding: 0.85rem 1.9rem;
+    opacity: 0.55;
+    transition: opacity .15s ease, background .15s ease;}
+.stTabs [data-baseweb="tab"]:hover {opacity: 0.85;}
+.stTabs [data-baseweb="tab"] p {
+    font-size: 1.45rem !important; font-weight: 600; color: #2e7d32 !important;}
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+    background: #2e7d32; opacity: 1;}
+.stTabs [data-baseweb="tab"][aria-selected="true"] p {color: #ffffff !important;}
 </style>""", unsafe_allow_html=True)
 
 # --- import the pipeline; if a library is broken, show a friendly page ------
