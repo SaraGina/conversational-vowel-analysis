@@ -48,7 +48,6 @@ VOWELS = {"en": _VC, "da": _VC_DA}
 # Distance between vowels to create new words
 _THR = 1.0
 _ALPHA = re.compile(r"^[A-Z]")
-_NUMBER = re.compile(r"^[\d.]+$")
 _DIGIT = re.compile(r"\d")
 
 
@@ -74,7 +73,7 @@ def _read_entries(dict_path, language):
             if arpa:
                 ph = [_DIGIT.sub("", p) for p in tok[1:] if _ALPHA.match(p)]
             else:
-                ph = [p.rstrip(":?") for p in tok[1:] if not _NUMBER.match(p)]
+                ph = [q for q in (p.rstrip(":?") for p in tok[1:]) if q]
             if ph:
                 entries.append((clean(tok[0]), ph))
     return entries
