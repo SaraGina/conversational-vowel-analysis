@@ -15,6 +15,11 @@ manual check is needed.
 Praat is assumed. There is a browser app that starts by double-clicking, and
 the command-line route is a single command.
 
+![The browser app, with its two ways of running the pipeline](docs/app.png)
+
+*Pick the two recordings, list the words, press Run. The second tab measures
+words that have already been annotated, and needs only one recording.*
+
 It was built for studying native–nonnative phonetic adaptation over English
 tense–lax vowel contrasts (*sheep–ship*, *pool–pull*, *dock–duck*), but nothing
 in the design is specific to those words or to English.

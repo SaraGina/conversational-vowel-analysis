@@ -22,6 +22,8 @@ st.set_page_config(page_title="Dyad pipeline", page_icon="🎙️", layout="wide
 st.markdown("""<style>
 html {font-size: 21px;}
 .block-container {max-width: 1200px; padding-top: 2.5rem;}
+/* nothing here is deployed anywhere: the button only confuses */
+[data-testid="stAppDeployButton"] {display: none !important;}
 html, body, .stApp, [class*="st-"] {font-size: 21px;}
 h1 {font-size: 2.5rem !important;}
 h2 {font-size: 1.9rem !important;}
@@ -126,7 +128,7 @@ If F1 and F2 look implausible for a speaker, this is the first setting to
 change."""
 
 
-st.caption("Fields marked :green[*] are required. Everything else is optional.")
+st.caption("Fields marked :red[*] are required. Everything else is optional.")
 
 tab_full, tab_ann = st.tabs([
     "① Start from the recordings",
@@ -158,16 +160,16 @@ with tab_full:
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("**Speaker A** · native")
-            up_a = st.file_uploader("Recording — own mic (.wav) :green[*]",
+            up_a = st.file_uploader("Recording — own mic (.wav) :red[*]",
                                     type=["wav"], key="ua")
-            label_a = st.text_input("Label :green[*]", "Confederate")
+            label_a = st.text_input("Label :red[*]", "Confederate")
             mf_a = st.number_input("Formant ceiling (Hz)", 4000, 6000, 5000, step=100,
                                    key="fa", help=MF_HELP)
         with col2:
             st.markdown("**Speaker B** · nonnative")
-            up_b = st.file_uploader("Recording — own mic (.wav) :green[*]",
+            up_b = st.file_uploader("Recording — own mic (.wav) :red[*]",
                                     type=["wav"], key="ub")
-            label_b = st.text_input("Label :green[*]", "Participant")
+            label_b = st.text_input("Label :red[*]", "Participant")
             mf_b = st.number_input("Formant ceiling (Hz)", 4000, 6000, 5500, step=100,
                                    key="fb", help=MF_HELP)
 
@@ -375,7 +377,7 @@ with tab_full:
 
 
     with st.container(border=True):
-        st.subheader("Minimal pairs :green[*]")
+        st.subheader("Minimal pairs :red[*]")
         st.caption("**You choose the words here.** The pipeline will search the two "
                    "recordings for exactly these words and measure every instance it "
                    "finds. Edit any cell, remove a pair with its 🗑️ button, or add "
@@ -754,13 +756,13 @@ with tab_ann:
             "spoke.")
         ac1, ac2 = st.columns(2)
         with ac1:
-            ann_audio = st.file_uploader("Recording (.wav) :green[*]",
+            ann_audio = st.file_uploader("Recording (.wav) :red[*]",
                                          type=["wav"], key="ann_audio")
-            ann_label = st.text_input("Speaker label :green[*]", "Talker 1",
+            ann_label = st.text_input("Speaker label :red[*]", "Talker 1",
                                       key="ann_label")
         with ac2:
             ann_xlsx = st.file_uploader(
-                "Annotation :green[*]",
+                "Annotation :red[*]",
                 type=["TextGrid", "xlsx", "csv", "tsv", "txt"],
                 key="ann_xlsx",
                 help="A Praat TextGrid, a spreadsheet, a delimited text file "
