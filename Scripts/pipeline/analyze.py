@@ -19,6 +19,7 @@ COLUMN_ORDER = [
     "VowelStart", "VowelEnd", "VowelDuration", "Ratio",
     "Vowel", "Tensity", "Env", "F1", "F1_Bark", "F2", "F2_Bark",
     "BlackScreen", "Segment", "WordCheck", "Check", "LabelReview", "EchoCheck",
+    "Boundaries", "HeardAs",
     "LevelDiff_dB", "AudioFile", "tStart", "tEnd",
 ]
 
@@ -85,7 +86,13 @@ def annotate(results, sets, set_words, core_all, vocab, speaker_a, speaker_b,
             if r["Trial"] > 0 and not r["Pair"]:
                 r["Pair"] = set_names[r["Trial"] - 1]
 
-        # D - flag rows that fall inside a scheduled black screen
+        # D - flag rows whose word was found inside a longer token
+        # The timestamps are that longer token's, so the word and vowel
+        # boundaries need checking against the audio before the row is used.
+        r["HeardAs"] = r.get("HeardAs") or ""
+        r["Boundaries"] = "PARTIAL" if r["HeardAs"] else ""
+
+        # E - flag rows that fall inside a scheduled black screen
         r["BlackScreen"] = ""
         if blackscreen and blackscreen.get("every"):
             first = blackscreen.get("first", 0)
@@ -94,7 +101,7 @@ def annotate(results, sets, set_words, core_all, vocab, speaker_a, speaker_b,
                     < blackscreen.get("dur", 15)):
                 r["BlackScreen"] = "BS"
 
-    # E - number each speaker's productions within a trial, in time order
+    # F - number each speaker's productions within a trial, in time order
     for r in results:
         r["Production_Confederate"] = None
         r["Production_Participant"] = None
@@ -110,7 +117,7 @@ def annotate(results, sets, set_words, core_all, vocab, speaker_a, speaker_b,
                 p_cnt += 1
                 r["Production_Participant"] = p_cnt
 
-    # F - number the segments: a gap longer than segment_gap starts a new one
+    # G - number the segments: a gap longer than segment_gap starts a new one
     for r in results:
         r["Segment"] = 0
     for t in sorted({r["Trial"] for r in results if r["Trial"] > 0}):

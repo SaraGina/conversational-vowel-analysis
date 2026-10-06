@@ -21,6 +21,7 @@ import yaml
 
 from .importer import import_transcript
 from .words import (clean, find_words, expand_words, default_dict_path,
+                    NO_WORD_SPACING,
                     LANGUAGES)
 from .speaker import assign_speaker
 from .measure import run_measurement
@@ -202,7 +203,10 @@ def run_config(cfg):
         print(f'Set "{name}": searching {", ".join(sorted(expanded))}')
     all_words = sorted(set().union(*set_words))
 
-    matches = find_words(tokens, all_words)
+    # where words are not separated by spaces, a token may hold more than
+    # the target word; those hits are kept and flagged PARTIAL
+    matches = find_words(tokens, all_words,
+                         partial=language in NO_WORD_SPACING)
 
     # optional analysis window: keep only tokens inside [start, end] seconds
     # (e.g. exclude pre-conversation warm-up that the annotators also exclude)

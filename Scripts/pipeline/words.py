@@ -18,13 +18,39 @@ def clean(s):
     return _CLEAN.sub("", str(s).lower().strip())
 
 # A- Find words 
-def find_words(tokens, word_list):
+# Languages written without spaces between words, where one token from the
+# recogniser can hold the target word and more besides.
+NO_WORD_SPACING = {"ja"}
+
+
+def find_words(tokens, word_list, partial=False):
+    """The tokens whose word is one of word_list.
+
+    With partial on, a token that merely contains a target word is kept too,
+    under the target as its word and with the token as heard in "heard_as".
+    Its timestamps stay those of the whole token, which is why analyze marks
+    these PARTIAL: the measured vowel need not be the target's.
+    """
     search = {clean(w) for w in word_list if clean(w)}
     if not search:
         raise ValueError("No valid search words given.")
-    matches = [t for t in tokens if clean(t["word"]) in search]
+    matches = []
+    n_partial = 0
+    for t in tokens:
+        c = clean(t["word"])
+        if c in search:
+            matches.append(t)
+        elif partial:
+            # the longest target inside the token, as the most specific one
+            inside = sorted((w for w in search if w in c), key=len)
+            if inside:
+                matches.append({**t, "word": inside[-1], "heard_as": c})
+                n_partial += 1
     print(f"Found {len(matches)} occurrence(s) of "
           f"[{', '.join(sorted(search))}].")
+    if n_partial:
+        print(f'{n_partial} of them inside a longer token (flagged "PARTIAL"); '
+              "their boundaries are the longer token's.")
     return matches
 
 

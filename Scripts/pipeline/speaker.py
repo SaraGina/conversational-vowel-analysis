@@ -171,6 +171,7 @@ def assign_speaker(matches, audio_a, audio_b, speaker_a, speaker_b):
                 "Word": m["word"], "tStart": m["tStart"], "tEnd": m["tEnd"],
                 "AudioFile": audio_a if is_a else audio_b,
                 "LevelDiff_dB": conf,
+                "HeardAs": m.get("heard_as", ""),
                 "fromOwn": m["speaker"] == (speaker_a if is_a else speaker_b),
             })
         return rows

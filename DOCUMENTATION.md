@@ -29,7 +29,8 @@ are in the language chosen here.
 English and Danish ship with a pronunciation dictionary, which lets the search
 also find the spellings a recogniser may invent for a target word. **Japanese
 has no dictionary yet**, so Japanese words are searched exactly as written; the
-measurements are unaffected.
+measurements are unaffected. Japanese is also matched inside longer tokens, as
+described under `PARTIAL` below.
 
 To add a language, drop a dictionary in `Input/`, name it in `DICTIONARIES` in
 `Scripts/pipeline/words.py`, and add that language's vowels to `VOWELS` in the
@@ -95,7 +96,7 @@ Either way, the pipeline always reads the file correctly.
 
 ## Quality flags
 
-The pipeline always signals when it has met something uncertain. Four flags in
+The pipeline always signals when it has met something uncertain. Five flags in
 the Excel mark the tokens a human should look at. Go to the recording at the
 `Onset` given in that row and listen to what is happening, to resolve the
 ambiguity that was flagged:
@@ -104,6 +105,26 @@ ambiguity that was flagged:
 - `DISAGREE`: the two microphones transcribed different words
 - `VARIANT`: found through a neighbouring spelling; confirm the identity
 - `ECHO?`: the same word from both speakers within 1 second
+- `PARTIAL`: the target was found inside a longer token, so the boundaries are
+  that token's and need checking
+
+### `PARTIAL` and the `HeardAs` column
+
+In a language written without spaces between words, the recogniser has to
+decide for itself where one word ends. A token it reports may hold the target
+word and more besides: a search for ねこ can arrive as ねこが, the noun with its
+particle attached.
+
+Those hits are kept rather than discarded, because the word really was spoken
+and the row sends the reviewer to the right moment in the recording. What
+cannot be trusted is the extent: the onset and offset are the longer token's,
+so the word duration is too long, and the vowel the measurement lands on need
+not be the target's. The `HeardAs` column shows the token as the recogniser
+wrote it, next to the target the row is filed under.
+
+Such a row is therefore a pointer to a place in the audio, not a measurement
+to be used as it stands. This applies to Japanese; English and Danish are
+matched whole, and never produce it.
 
 On a `DISAGREE` row the `Word` column keeps both spellings, and `Vowel`,
 `Tensity` and `Env` are taken from whichever of them appears first in the
