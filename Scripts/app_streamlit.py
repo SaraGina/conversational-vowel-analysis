@@ -43,12 +43,11 @@ except Exception:
     st.code(traceback.format_exc())
     st.stop()
 
+# three examples, one per contrast, meant to be replaced rather than kept
 DEFAULT_PAIRS = [
-    ("sheep_ship", "sheep", "ship"), ("meal_mill", "meal", "mill"),
-    ("bean_bin", "bean", "bin"), ("cheek_chick", "cheek", "chick"),
-    ("fool_full", "fool", "full"), ("pool_pull", "pool", "pull"),
-    ("dock_duck", "dock", "duck"), ("cop_cup", "cop", "cup"),
-    ("lock_luck", "lock", "luck"), ("boss_bus", "boss", "bus"),
+    ("sheep_ship", "sheep", "ship"),
+    ("pool_pull", "pool", "pull"),
+    ("dock_duck", "dock", "duck"),
 ]
 
 
@@ -349,9 +348,38 @@ with st.container(border=True):
         "and not only the range. The value used is written beside every "
         "measurement in the output.")
     st.button("➕ Add a pair", on_click=add_pair)
+    st.caption(
+        "These three are examples. Replace them with the words of your own "
+        "study - the pipeline searches for exactly what is listed here.")
     pairs_rows = [{"pair name": r["name"], "word 1": r["w1"], "word 2": r["w2"],
                    "ceiling": r.get("mf", "")}
                   for r in st.session_state.pair_rows]
+
+
+def filled_pairs():
+    """The rows of the table that name a pair and both of its words."""
+    return [r for r in pairs_rows
+            if r.get("pair name") and r.get("word 1") and r.get("word 2")]
+
+
+def pairs_for_config(rows):
+    """The table as the config wants it, carrying any pair's own ceiling.
+
+    Both ways of starting a run read the same table through here.
+    """
+    out = {}
+    for r in rows:
+        mf = str(r.get("ceiling", "")).strip()
+        if not mf:
+            out[r["pair name"]] = [r["word 1"], r["word 2"]]
+            continue
+        try:
+            out[r["pair name"]] = {"words": [r["word 1"], r["word 2"]],
+                                   "max_formant": float(mf)}
+        except ValueError:
+            st.error(f"The ceiling for '{r['pair name']}' is not a number.")
+            st.stop()
+    return out
 
 with st.container(border=True):
     st.subheader("Options")
@@ -373,6 +401,11 @@ with st.container(border=True):
         "Analysis window end (s)", 0, 100000, 0,
         help="Ignore tokens after this time. Leave 0 to analyze to the end.")
 
+st.caption(
+    "Already know where the words are? If they have been located by hand "
+    "already, there is a shorter route at the bottom of this page that skips "
+    "straight to the measurement.")
+
 if st.button("▶ Run pipeline", type="primary", use_container_width=True):
     if up_a is None or up_b is None:
         st.error("Please select the two .wav recordings first (one per speaker).")
@@ -385,26 +418,13 @@ if st.button("▶ Run pipeline", type="primary", use_container_width=True):
                  "needs the two separate recordings of one conversation, one "
                  "per speaker.")
         st.stop()
-    valid = [r for r in pairs_rows
-             if r.get("pair name") and r.get("word 1") and r.get("word 2")]
+    valid = filled_pairs()
     if not valid:
         st.error("Define at least one minimal pair.")
         st.stop()
     # words alone, for the vocabulary work below
     pairs = {r["pair name"]: [r["word 1"], r["word 2"]] for r in valid}
-    # and the form the config takes, which carries a pair's own ceiling
-    cfg_pairs = {}
-    for r in valid:
-        mf = str(r.get("ceiling", "")).strip()
-        if mf:
-            try:
-                cfg_pairs[r["pair name"]] = {
-                    "words": [r["word 1"], r["word 2"]], "max_formant": float(mf)}
-            except ValueError:
-                st.error(f"The ceiling for '{r['pair name']}' is not a number.")
-                st.stop()
-        else:
-            cfg_pairs[r["pair name"]] = [r["word 1"], r["word 2"]]
+    cfg_pairs = pairs_for_config(valid)
 
     auto_rows = []
     for _name, (_w1, _w2) in pairs.items():
@@ -600,6 +620,18 @@ with st.container(border=True):
         "boundaries refined, reported beside the first as a check - the two "
         "usually agree, and where they do not, the difference is how much the "
         "boundary placement moved F1 and F2.")
+    st.caption(
+        "**The minimal pairs above are not needed for this.** The words come "
+        "from the annotation. Filling them in anyway is still worth it: a word "
+        "listed there gets its Pair, Vowel, Tensity and Env columns, and a "
+        "pair's own formant ceiling is applied to its words.")
+    st.info(
+        "**This measures the words the annotation lists, and only those.** It "
+        "says whether an existing annotation was measured consistently, never "
+        "whether anything was missed. To find words that were not annotated, "
+        "use **Run pipeline** above instead: that needs the two recordings, "
+        "one per speaker's own microphone, and the list of words to search "
+        "for.")
 
     if st.button("Measure the annotated words", use_container_width=True,
                  key="ann_run"):
@@ -612,11 +644,15 @@ with st.container(border=True):
             x_path = save_into(ann_xlsx, INPUT)
             try:
                 with contextlib.redirect_stdout(ann_log):
-                    ann_out = run_config({
+                    ann_cfg = {
                         "annotations": os.path.basename(x_path),
                         "speaker_A": {"audio": os.path.basename(a_path),
                                       "label": ann_label,
-                                      "max_formant": ann_mf}})
+                                      "max_formant": ann_mf}}
+                    # the table above is optional here, and used when filled in
+                    if filled_pairs():
+                        ann_cfg["pairs"] = pairs_for_config(filled_pairs())
+                    ann_out = run_config(ann_cfg)
             except Exception as exc:
                 st.error(f"The measurement stopped: {exc}")
                 st.code(ann_log.getvalue() or traceback.format_exc(),

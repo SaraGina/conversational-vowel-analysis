@@ -111,6 +111,12 @@ row whose end is missing is given a short window from its onset, its boundaries
 are found by silence detection inside it, and it is marked `FROM ONSET` in the
 `Boundaries` column.
 
+**`pairs` is optional on this route**, since the words come from the
+annotation rather than from a search. Declaring them anyway is still worth it:
+a word listed there gets its `Pair`, `Vowel`, `Tensity` and `Env` columns, and
+a pair that declares its own formant ceiling has it applied to its words. A
+word in no pair is still measured, with those columns left empty.
+
 **The boundaries given are kept as they are.** Where an end is supplied, the
 vowel is looked for inside exactly that interval and nothing is adjusted
 behind the annotator's back.
@@ -126,10 +132,13 @@ which is otherwise impossible to tell apart from a disagreement about the
 measurement itself.
 
 The measurement is the same code on both routes, so a result obtained this way
-and one obtained from the recordings are directly comparable. What this route
-does **not** do is find anything: the token list is the annotation's, so it
-reports on the consistency of an existing annotation, never on its
-completeness. Finding words the annotator missed needs the full pipeline.
+and one obtained from the recordings are directly comparable.
+
+What this route does **not** do is find anything. The token list is the
+annotation's, so it reports on whether an existing annotation was measured
+consistently, never on whether anything was missed. Finding words the
+annotator did not mark needs the full route: two recordings, one per speaker's
+own microphone, and the list of words to search for.
 
 ## The output columns
 
