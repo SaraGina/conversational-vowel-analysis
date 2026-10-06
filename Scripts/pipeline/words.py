@@ -9,7 +9,9 @@ The distance between vowels is by default set to 1, but it is just adjustable in
 import os
 import re
 
-_CLEAN = re.compile(r"[^a-z0-9æøåäöüéèêàç']")
+# Keeps letters and digits of any script and drops punctuation, so a language
+# written outside the Latin alphabet is not emptied here.
+_CLEAN = re.compile(r"[^\w']|_", re.UNICODE)
 
 
 def clean(s):
@@ -44,7 +46,14 @@ _VC_DA = {"i": (3, 1),   "y": (3, 1.5),   "u": (3, 3),
           "6": (1.5, 2), "Q": (1.5, 3),
           "a": (1, 1),   "A": (1, 3)}
 
-VOWELS = {"en": _VC, "da": _VC_DA}
+# Japanese, five vowels. /u/ sits at backness 2.5 because it is produced
+# further forward than the English one, which raises its F2. Length is
+# stripped before the lookup, as it is for Danish.
+_VC_JA = {"i": (3, 1),   "u": (3, 2.5),
+          "e": (2, 1),   "o": (2, 3),
+          "a": (1, 2)}
+
+VOWELS = {"en": _VC, "da": _VC_DA, "ja": _VC_JA}
 # Distance between vowels to create new words
 _THR = 1.0
 _ALPHA = re.compile(r"^[A-Z]")
@@ -85,7 +94,7 @@ DICTIONARIES = {"en": "english_us_arpa.dict",
                 "da": "danish.dict"}
 
 # what the recogniser is told, and what the screen calls it
-LANGUAGES = {"en": "English", "da": "Danish"}
+LANGUAGES = {"en": "English", "da": "Danish", "ja": "Japanese"}
 
 
 def default_dict_path(scripts_dir, language="en"):
