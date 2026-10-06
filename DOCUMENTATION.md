@@ -112,10 +112,10 @@ are found by silence detection inside it, and it is marked `FROM ONSET` in the
 `Boundaries` column.
 
 **`pairs` is optional on this route**, since the words come from the
-annotation rather than from a search. Declaring them anyway is still worth it:
-a word listed there gets its `Pair`, `Vowel`, `Tensity` and `Env` columns, and
-a pair that declares its own formant ceiling has it applied to its words. A
-word in no pair is still measured, with those columns left empty.
+annotation rather than from a search. `Pair`, `Vowel`, `Tensity` and `Env` are
+read from `Input/master_vocab.csv` either way, so they do not depend on it.
+What declaring the pairs still does here is number the trials, and apply a
+pair's own formant ceiling to the words of that pair.
 
 **The boundaries given are kept as they are.** Where an end is supplied, the
 vowel is looked for inside exactly that interval and nothing is adjusted

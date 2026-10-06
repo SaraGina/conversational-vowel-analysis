@@ -265,6 +265,74 @@ def read_vocab_rows():
         return []
 
 
+_PN = ("pair name", "pair_name", "pair", "name", "set")
+_W1 = ("word 1", "word_1", "word1", "w1", "first", "intended_word")
+_W2 = ("word 2", "word_2", "word2", "w2", "second")
+_MF = ("ceiling", "max_formant", "max formant", "formant ceiling", "maxformant")
+
+
+def _pick(header, names):
+    for n in names:
+        if n in header:
+            return header[n]
+    return None
+
+
+def read_pair_list(upload):
+    """(name, word 1, word 2, ceiling) rows from an uploaded word list.
+
+    A .yaml is read from its pairs: block, in either of the forms the config
+    accepts. A .xlsx or .csv is read by its column names; where it has no
+    column of pair names, each name is made from its two words.
+    """
+    data = upload.getvalue()
+    name = upload.name.lower()
+    rows = []
+
+    if name.endswith((".yaml", ".yml")):
+        import yaml
+        doc = yaml.safe_load(io.BytesIO(data)) or {}
+        pairs = doc.get("pairs") if isinstance(doc, dict) else None
+        if pairs is None and isinstance(doc, dict):
+            pairs = doc
+        for pname, spec in (pairs or {}).items():
+            if isinstance(spec, dict):
+                words = [str(w) for w in (spec.get("words") or [])]
+                mf = spec.get("max_formant")
+            else:
+                words, mf = [str(w) for w in (spec or [])], None
+            if len(words) == 2:
+                rows.append((str(pname), words[0], words[1],
+                             "" if mf is None else str(mf)))
+        return rows
+
+    if name.endswith(".csv"):
+        import csv
+        table = list(csv.reader(io.StringIO(data.decode("utf-8-sig"))))
+    else:
+        import openpyxl
+        ws = openpyxl.load_workbook(io.BytesIO(data), data_only=True).worksheets[0]
+        table = [list(r) for r in ws.iter_rows(values_only=True)]
+    if not table:
+        return rows
+
+    header = {}
+    for i, cell in enumerate(table[0]):
+        header.setdefault(str(cell or "").strip().lower(), i)
+    i1, i2 = _pick(header, _W1), _pick(header, _W2)
+    if i1 is None or i2 is None:
+        return rows
+    ip, im = _pick(header, _PN), _pick(header, _MF)
+    for raw in table[1:]:
+        get = lambda i: ("" if i is None or i >= len(raw) or raw[i] is None
+                         else str(raw[i]).strip())
+        w1, w2 = get(i1), get(i2)
+        if not w1 or not w2:
+            continue
+        rows.append((get(ip) or f"{w1}_{w2}", w1, w2, get(im)))
+    return rows
+
+
 with st.container(border=True):
     st.subheader("Minimal pairs")
     st.caption("**You choose the words here.** The pipeline will search the two "
@@ -272,11 +340,42 @@ with st.container(border=True):
                "finds. Edit any cell, remove a pair with its 🗑️ button, or add "
                "your own below.")
 
+    up_list = st.file_uploader(
+        "Load a word list instead of typing it — optional (.yaml, .xlsx, .csv)",
+        type=["yaml", "yml", "xlsx", "csv"], key="pairs_file",
+        help="A pipeline .yaml is read from its pairs: block. A sheet needs a "
+             "column for each of the two words, and may add a pair name and a "
+             "ceiling. Loading a list replaces whatever is in the table.")
+
     if "pair_rows" not in st.session_state:
         st.session_state.pair_rows = [
             {"id": i, "name": n, "w1": w1, "w2": w2, "mf": ""}
             for i, (n, w1, w2) in enumerate(DEFAULT_PAIRS)]
         st.session_state.next_id = len(DEFAULT_PAIRS)
+
+    # a loaded list replaces the table; the stamp keeps one upload from
+    # being read again on every rerun
+    if up_list is not None:
+        stamp = (up_list.name, len(up_list.getvalue()))
+        if st.session_state.get("pairs_from") != stamp:
+            loaded = read_pair_list(up_list)
+            st.session_state.pairs_from = stamp
+            st.session_state.pairs_msg = (
+                f"Loaded {len(loaded)} pair(s) from {up_list.name}."
+                if loaded else
+                f"No word pairs could be read from {up_list.name}. A sheet "
+                "needs a column for each of the two words; a .yaml needs a "
+                "pairs: block.")
+            if loaded:
+                start = st.session_state.next_id
+                st.session_state.pair_rows = [
+                    {"id": start + i, "name": n, "w1": w1, "w2": w2, "mf": mf}
+                    for i, (n, w1, w2, mf) in enumerate(loaded)]
+                st.session_state.next_id = start + len(loaded)
+                st.rerun()
+        msg = st.session_state.get("pairs_msg")
+        if msg:
+            (st.success if msg.startswith("Loaded") else st.warning)(msg)
 
 
     def add_pair():
@@ -350,7 +449,8 @@ with st.container(border=True):
     st.button("➕ Add a pair", on_click=add_pair)
     st.caption(
         "These three are examples. Replace them with the words of your own "
-        "study - the pipeline searches for exactly what is listed here.")
+        "study, or load a list above - the pipeline searches for exactly what "
+        "is listed here.")
     pairs_rows = [{"pair name": r["name"], "word 1": r["w1"], "word 2": r["w2"],
                    "ceiling": r.get("mf", "")}
                   for r in st.session_state.pair_rows]
@@ -404,7 +504,9 @@ with st.container(border=True):
 st.caption(
     "Already know where the words are? If they have been located by hand "
     "already, there is a shorter route at the bottom of this page that skips "
-    "straight to the measurement.")
+    "straight to the measurement. If they are annotated in an Excel but you "
+    "would also like to know whether the recordings hold tokens the "
+    "annotation does not list, run the whole pipeline here.")
 
 if st.button("▶ Run pipeline", type="primary", use_container_width=True):
     if up_a is None or up_b is None:
@@ -622,16 +724,17 @@ with st.container(border=True):
         "boundary placement moved F1 and F2.")
     st.caption(
         "**The minimal pairs above are not needed for this.** The words come "
-        "from the annotation. Filling them in anyway is still worth it: a word "
-        "listed there gets its Pair, Vowel, Tensity and Env columns, and a "
-        "pair's own formant ceiling is applied to its words.")
+        "from the annotation, and the Pair, Vowel, Tensity and Env columns are "
+        "read from `Input/master_vocab.csv` either way. What the table still "
+        "does on this route is number the trials, and apply a pair's own "
+        "formant ceiling to its words.")
     st.info(
         "**This measures the words the annotation lists, and only those.** It "
-        "says whether an existing annotation was measured consistently, never "
-        "whether anything was missed. To find words that were not annotated, "
-        "use **Run pipeline** above instead: that needs the two recordings, "
-        "one per speaker's own microphone, and the list of words to search "
-        "for.")
+        "says whether an existing annotation was measured consistently. To "
+        "find words the annotation does not list, use **Run pipeline** above "
+        "instead - searching the recordings and working out who spoke is what "
+        "needs the two separate microphones, which is why this shorter route "
+        "can run on a single recording and that one cannot.")
 
     if st.button("Measure the annotated words", use_container_width=True,
                  key="ann_run"):
