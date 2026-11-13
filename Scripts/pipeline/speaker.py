@@ -6,19 +6,27 @@ louder in.
 
 How it is done:
   1. Measure how loud each recording is, every 50 ms (first channel only).
-  2. Keep the moments where someone is speaking - loud enough to stand out
+  2. If the two files do not start at the same moment, measure the offset by
+     cross-correlating the two loudness curves - both microphones hear the
+     same room - and shift one timeline to match the other. Every word is
+     reported in the clock of the file it is measured in.
+  3. Keep the moments where someone is speaking - loud enough to stand out
      from that recording's own background - and look at the difference in
      loudness between the two microphones across all of them. Those
      differences fall into two groups, one per speaker; the boundary between
      the groups becomes the threshold for this session.
-  3. Assign each word by its own average difference against that threshold.
-  4. A word caught by both microphones appears twice. When the two copies
+  4. Assign each word by its own average difference against that threshold.
+  5. A word caught by both microphones appears twice. When the two copies
      overlap in time, keep one: the copy from the speaker's own microphone
      if both transcripts agree on the word, or a single row carrying both
      spellings and a DISAGREE flag if they do not.
-  5. If the same word comes from both speakers less than a second apart, flag
+  6. If the same word comes from both speakers less than a second apart, flag
      both with ECHO? - it may be a genuine repetition, or one utterance whose
      two copies were split between the speakers.
+
+Tracks recorded apart, with no shared room sound, give the cross-correlation
+nothing to work on: `assign_separate` is for those, keeping each file's words
+with that file's own speaker and comparing nothing.
 """
 import math
 import numpy as np
@@ -102,14 +110,50 @@ def assign_speaker(matches, audio_a, audio_b, speaker_a, speaker_b):
     window = corr[mid - max_lag: mid + max_lag + 1]
     lag_s = (int(np.argmax(window)) - max_lag) * ds * FRAME_DUR
     peak_corr = float(window.max())
-    if abs(lag_s) > 1.0 and peak_corr >= 0.3:
-        print(f"WARNING: the two recordings appear to start about "
-              f"{lag_s:+.1f} seconds apart. Everything here assumes they "
-              "share one timeline, so trim or re-align the two wav files "
-              "before trusting the results.")
+
+    # align the two timelines when the files do not start together:
+    # refine the coarse lag to one 50 ms frame, then trim the envelopes to
+    # their overlap and move the other transcript's times onto A's clock
+    offset_b = 0.0
     if peak_corr < 0.3:
-        print(f"WARNING: the two recordings do not sound like the same "
-              f"conversation. The speaker assignment cannot be trusted.")
+        print("WARNING: the two recordings do not sound like the same "
+              "conversation. The speaker assignment cannot be trusted. If "
+              "they are tracks recorded apart on purpose, with no shared "
+              "room sound, set  separate_tracks: true  in the config (in "
+              "the browser app, tick the separate-tracks box).")
+    elif abs(lag_s) > 0.1:
+        k0 = int(round(lag_s / FRAME_DUR))
+        af, bf = LA - LA.mean(), LB - LB.mean()
+        best_k, best_c = 0, -1.0
+        for k in range(k0 - 2 * ds, k0 + 2 * ds + 1):
+            x = af[k:] if k >= 0 else af[:n + k]
+            y = bf[:n - k] if k >= 0 else bf[-k:]
+            if len(x) < 100:
+                continue
+            c = float((x * y).sum()) / (math.sqrt(float((x * x).sum())
+                                                  * float((y * y).sum())) or 1.0)
+            if c > best_c:
+                best_c, best_k = c, k
+        offset_b = best_k * FRAME_DUR
+        if abs(offset_b) >= 0.2:
+            later = os.path.basename(audio_b if offset_b > 0 else audio_a)
+            print(f"NOTE: the recordings start {abs(offset_b):.2f} s apart "
+                  f"({later} starts later). The two timelines were aligned "
+                  "on the shared room sound; every time below is in the "
+                  "clock of the file the word is measured in.")
+            k = best_k
+            if k >= 0:
+                LA, LB, tF = LA[k:], LB[:n - k], tF[k:]
+            else:
+                LA, LB, tF = LA[:n + k], LB[-k:], tF[:n + k]
+            n = len(tF)
+            matches = [dict(m) for m in matches]
+            for m in matches:
+                if m["speaker"] == speaker_b:
+                    m["tStart"] += offset_b
+                    m["tEnd"] += offset_b
+        else:
+            offset_b = 0.0
 
     active = (LA > _percentile(LA, 5) + 10) | (LB > _percentile(LB, 5) + 10)
     d = LA[active] - LB[active]
@@ -273,4 +317,35 @@ def assign_speaker(matches, audio_a, audio_b, speaker_a, speaker_b):
     elif len(out) >= 20 and min(na, nb) / len(out) < 0.10:
         print("WARNING: speaker assignment is EXTREMELY unbalanced "
               f"({na} vs {nb}). Do not trust the speaker labels as is.")
+    # words assigned to B are measured in B's file, so they go back to its clock
+    if offset_b:
+        for r in out:
+            if r["AudioFile"] == audio_b:
+                r["tStart"] -= offset_b
+                r["tEnd"] -= offset_b
+    return out
+
+
+def assign_separate(matches, audio_a, audio_b, speaker_a, speaker_b):
+    """Keeps each file's words with that file's own speaker.
+
+    For tracks recorded apart, with no shared room sound: each microphone
+    hears only its own talker, so there is no level to compare, no duplicate
+    copy to remove, and no crosstalk for the ECHO? flag to catch. Each file's
+    times stay in that file's own clock, as on the other route.
+    """
+    audio = {speaker_a: audio_a, speaker_b: audio_b}
+    out = []
+    for m in sorted(matches, key=lambda m: (m["speaker"], m["tStart"])):
+        out.append({
+            "Speaker": m["speaker"],
+            "Word": m["word"], "tStart": m["tStart"], "tEnd": m["tEnd"],
+            "AudioFile": audio[m["speaker"]],
+            "LevelDiff_dB": None,
+            "HeardAs": m.get("heard_as", ""),
+            "WordCheck": "", "EchoCheck": "",
+        })
+    na = sum(1 for r in out if r["Speaker"] == speaker_a)
+    print(f"{len(out)} instance(s), tracks kept separate: "
+          f"{na} {speaker_a}, {len(out) - na} {speaker_b}.")
     return out

@@ -83,6 +83,14 @@ token starts a new segment — so a first discussion of *sheep/ship* is separate
 from a later return to it. It does not mark a change of word pair: each pair is
 segmented on its own. The browser app uses a fixed value and does not expose it.
 
+**`separate_tracks`** declares that the two files are tracks recorded apart —
+generated voices, or the two sides of a call exported separately — so each
+microphone holds only its own talker and there is no shared room sound. Each
+file's words then stay with that file's own speaker: no levels are compared,
+no duplicate copies are removed, and the `DISAGREE` and `ECHO?` flags cannot
+arise. In the browser app this is the separate-tracks box under **Options**.
+Leave it out for two microphones in the same room.
+
 ## Measuring words that are already located
 
 A study that has already been annotated by hand does not need the first three
@@ -264,6 +272,16 @@ the whole conversation fall into two groups — one for the stretches where
 speaker A is the louder, one for speaker B — and the boundary is placed between
 them, separately for each recording. Nothing has to be calibrated beforehand.
 
+The two files are also not required to start at the same moment. Because both
+microphones hear the same room, cross-correlating their two loudness curves
+shows how far apart they start; an offset above 0.2 s is corrected before
+anything is compared, and the log says by how much. Every time in the output
+stays in the clock of the file the word is measured in, so a TextGrid opens
+correctly over its own recording. What is not corrected is drift — two
+devices whose sample clocks run at slightly different speeds, so that an
+offset grows over the recording. Recording both channels on one device avoids
+drift entirely.
+
 Because both microphones pick up both speakers, the same word reaches the two
 transcripts twice, at different levels. Whenever the two copies overlap in time
 they are merged into a single token and attributed to one speaker, so a word
@@ -291,6 +309,11 @@ belongs to can be confirmed.
 - **Overlapping speech.** Assignment assumes each talker is loudest in their own
   microphone. When the two levels are close the decision is fragile — hence the
   `ECHO?` flag.
+- **One timeline, one clock rate.** A constant offset between the two files is
+  measured on the shared room sound and corrected, but drift between two
+  devices' sample clocks is not: over a long recording the timestamps of one
+  file slide past the other's. Record both channels on one device, or
+  re-export the tracks against one clock, before running.
 - **Recogniser ceiling.** What the recogniser does not transcribe cannot be
   measured. Neighbour expansion reduces this but does not remove it.
 - **Formant ceilings** are set by hand per speaker and affect F1/F2.

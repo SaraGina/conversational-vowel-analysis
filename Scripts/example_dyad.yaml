@@ -33,6 +33,13 @@ pairs:
 segment_gap: 45          # gap (s) between two tokens of the SAME pair
                          # that starts a new discussion segment for it
 
+# Optional: the two files are tracks recorded apart - generated voices, or
+# the two sides of a call exported separately - so each microphone holds only
+# its own talker and there is no shared room sound. Each file's words then
+# stay with that file's own speaker, and nothing is compared between the
+# microphones. Leave it out for two microphones in the same room.
+# separate_tracks: true
+
 # Optional: measure words that are already located, instead of searching for
 # them. With this line the first three stages are skipped: no transcription,
 # no word search, no speaker assignment - so one recording is enough and

@@ -24,7 +24,7 @@ from .words import (clean, find_words, expand_words, default_dict_path,
                     NO_WORD_SPACING,
                     LANGUAGES)
 from .annotations import read_annotations
-from .speaker import assign_speaker
+from .speaker import assign_speaker, assign_separate
 from .measure import run_measurement
 from .analyze import annotate, load_vocab, write_excel
 
@@ -317,8 +317,13 @@ def run_config(cfg):
             "Check the spelling of the pairs, and the analysis window if you "
             "set one.")
 
-    # B- speaker assignment + acoustic measurement 
-    inst = assign_speaker(matches, audio_a, audio_b, label_a, label_b)
+    # B- speaker assignment + acoustic measurement
+    # tracks recorded apart have no shared room sound to compare: each file's
+    # words then stay with that file's own speaker
+    if cfg.get("separate_tracks"):
+        inst = assign_separate(matches, audio_a, audio_b, label_a, label_b)
+    else:
+        inst = assign_speaker(matches, audio_a, audio_b, label_a, label_b)
     # a pair that declared its own ceiling passes it to its own tokens
     for r in inst:
         comp = {clean(w) for w in str(r["Word"]).split("/")}

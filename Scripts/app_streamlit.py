@@ -543,6 +543,14 @@ with tab_full:
         win_end = w2c.number_input(
             "Analysis window end (s)", 0, 100000, 0,
             help="Ignore tokens after this time. Leave 0 to analyze to the end.")
+        sep_tracks = st.checkbox(
+            "The two files are separate tracks with no shared room sound",
+            help="For tracks recorded apart - generated voices, or the two "
+                 "sides of a call exported separately - where each file holds "
+                 "only its own talker. Each file's words then stay with that "
+                 "file's speaker, and nothing is compared between the "
+                 "microphones. Leave it off for two microphones in the same "
+                 "room.")
 
     st.caption(
         "Already have the words located by hand? The second tab measures them "
@@ -598,6 +606,8 @@ with tab_full:
             "pairs": cfg_pairs, "segment_gap": SEGMENT_GAP, "language": language,
             "analysis_start": win_start, "analysis_end": win_end,
         }
+        if sep_tracks:
+            cfg["separate_tracks"] = True
         if human_name:
             cfg["human_excel"] = os.path.basename(human_name)
 
