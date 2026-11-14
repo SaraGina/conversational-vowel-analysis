@@ -630,7 +630,9 @@ with tab_full:
             """Map the log so far to (label, progress 0-1)."""
             meas = re.findall(r"measured (\d+)/(\d+) tokens", txt)
             if "extracting human reference" in txt or "Building comparison" in txt:
-                return "Building the comparison and TextGrids...", 0.97
+                return "Building the comparison vs the human annotation...", 0.97
+            if "Writing the TextGrids" in txt:
+                return "Writing the TextGrids...", 0.96
             if re.search(r"Done\. \d+ token", txt):
                 return "Writing the Excel...", 0.95
             if meas:
@@ -691,6 +693,10 @@ with tab_full:
                        "comparison vs the human Excel could not be built** — "
                        "usually the human Excel has a different format than "
                        "expected (see the exact reason in the log at the bottom).")
+        if "WARNING: the TextGrids could not be written" in log_txt:
+            st.warning("**The TextGrids could not be written** (see the reason "
+                       "in the log at the bottom). The analysis Excel is "
+                       "still valid.")
         if "WARNING: every token was assigned to the SAME speaker" in log_txt:
             st.warning("**All tokens were assigned to the same speaker.** Check "
                        "that the two wav files really are the two separate, "
@@ -719,7 +725,14 @@ with tab_full:
                     "checking which timeline the annotation was made on.")
         comp = os.path.join(OUTPUT, "COMPARISON_system_vs_human.xlsx")
         has_comp = human_name and os.path.isfile(comp)
-        d1, d2 = st.columns(2)
+        tg_dir = os.path.join(OUTPUT, "TextGrids_SYSTEM")
+        tg_paths = [os.path.join(
+                        tg_dir,
+                        os.path.splitext(os.path.basename(a))[0]
+                        + "_SYSTEM.TextGrid")
+                    for a in dict.fromkeys([audio_a, audio_b])]
+        tg_paths = [t for t in tg_paths if os.path.isfile(t)]
+        d1, d2, d3 = st.columns(3)
         with open(out_xlsx, "rb") as f:
             d1.download_button("⬇ Analysis Excel (all tokens)", f,
                                file_name=os.path.basename(out_xlsx),
@@ -729,6 +742,20 @@ with tab_full:
                 d2.download_button("⬇ Comparison vs human (colored)", f,
                                    file_name="COMPARISON_system_vs_human.xlsx",
                                    type="primary", use_container_width=True)
+        if tg_paths:
+            import zipfile
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w") as z:
+                for t in tg_paths:
+                    z.write(t, os.path.basename(t))
+            d3.download_button("⬇ Praat TextGrids", buf.getvalue(),
+                               file_name="TextGrids_SYSTEM.zip",
+                               use_container_width=True,
+                               help="One TextGrid per recording, with the word "
+                                    "and vowel boundaries the measurements "
+                                    "used. Correct them in Praat and run "
+                                    "② Start from an annotation to "
+                                    "re-measure with your boundaries.")
 
         if has_comp:
             import openpyxl

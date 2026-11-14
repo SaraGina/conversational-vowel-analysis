@@ -155,6 +155,13 @@ measurement itself.
 The measurement is the same code on both routes, so a result obtained this way
 and one obtained from the recordings are directly comparable.
 
+The full route writes its own boundaries as Praat TextGrids on every run, in
+`Output/TextGrids_SYSTEM/`, one per recording, with a word and a vowel tier.
+That is the natural starting point for a manual check: open the TextGrid over
+its recording, correct the boundaries that need it, and give the corrected
+file back through `annotations:` — the same words are then re-measured with
+the corrected boundaries.
+
 What this route does **not** do is find anything. The token list is the
 annotation's, so it reports on whether an existing annotation was measured
 consistently, never on whether anything was missed. Finding words the

@@ -8,9 +8,8 @@ Steps:
 3) find the target words and their phonetic neighbours, 
 4) assign each one to a speaker, 
 5) measure with parselmouth, 
-6) write the combined Excel, and
-7) optionally build the comparison against a manual annotation plus the Praat
-TextGrids.
+6) write the combined Excel and the Praat TextGrids, and
+7) optionally build the comparison against a manual annotation.
 """
 import hashlib
 import os
@@ -345,9 +344,24 @@ def run_config(cfg):
     out_xlsx = os.path.join(OUTPUT, stem + "_ALL_sets_analysis.xlsx")
     write_excel(results, out_xlsx)
 
-    # --- optional: comparison vs human annotation + TextGrids ---------------
+    # Praat TextGrids with the system's boundaries, one per audio file. They
+    # are written on every run: corrected in Praat and given back through
+    # annotations: , they re-measure the same words with the corrected
+    # boundaries.
+    print("\nWriting the TextGrids ...")
+    tg = subprocess.run(
+        [sys.executable, os.path.join(SCRIPTS, "build_textgrids.py"),
+         out_xlsx, os.path.join(OUTPUT, "TextGrids_SYSTEM")],
+        capture_output=True, text=True)
+    print(tg.stdout, end="")
+    if tg.returncode != 0:
+        print("WARNING: the TextGrids could not be written. The analysis "
+              "Excel above is still valid. Reason:")
+        print((tg.stderr or tg.stdout).strip())
+
+    # --- optional: comparison vs human annotation ---------------------------
     if cfg.get("human_excel"):
-        print("\nBuilding comparison vs human annotation + TextGrids ...")
+        print("\nBuilding comparison vs human annotation ...")
         hum = os.path.join(OUTPUT, cfg["human_excel"])
         ref = os.path.join(
             OUTPUT, os.path.splitext(cfg["human_excel"])[0] + "_REF.xlsx")
@@ -364,9 +378,6 @@ def run_config(cfg):
             ("building the colored comparison",
              [py, os.path.join(SCRIPTS, "build_comparison_excel.py"),
               out_xlsx, ref, comp]),
-            ("writing the TextGrids",
-             [py, os.path.join(SCRIPTS, "build_textgrids.py"),
-              out_xlsx, os.path.join(OUTPUT, "TextGrids_SYSTEM")]),
         ]
         # a comparison failure DOES NOT invalidate the analysis
         for what, cmd in steps:
