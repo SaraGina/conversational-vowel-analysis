@@ -134,16 +134,6 @@ pair's own formant ceiling to the words of that pair.
 vowel is looked for inside exactly that interval and nothing is adjusted
 behind the annotator's back.
 
-Every word is then measured a **second** time with the boundaries refined, and
-that result is reported alongside in `Onset_refined`, `Offset_refined`,
-`F1_refined` and `F2_refined`. These are a check rather than a competing
-answer, and most of the time they agree with the first measurement: refinement
-only moves a boundary when it finds a silence inside the margin, and an
-annotator who cut tightly leaves nothing to move. Where they differ, the
-difference is how much the placement of the word boundary moved F1 and F2 —
-which is otherwise impossible to tell apart from a disagreement about the
-measurement itself.
-
 The measurement is the same code on both routes, so a result obtained this way
 and one obtained from the recordings are directly comparable.
 
@@ -244,9 +234,13 @@ Seven stages, in `Scripts/pipeline/`:
    phonetic-neighbour spellings the recogniser may produce
 3. **Speaker assignment** (`speaker.py`): acoustic, calibration-free; merges the
    two microphones' copies of the same word
-4. **Boundary refinement** (`measure.py`): Praat silence detection on the word
-5. **Vowel identification** (`measure.py`): longest stretch where F2 is a
-   well-defined resonance (−3 dB bandwidth under 400 Hz)
+4. **Word end** (`measure.py`): the recogniser's start is kept; the end is
+   moved to where the sound stops (Praat silence detection), at most 150 ms
+   later and never earlier
+5. **Vowel identification** (`measure.py`): from the loudest voiced moment of
+   the word, widened while the sound stays voiced, within 9 dB of that peak
+   (300–3500 Hz) and not fricative-like (4–8 kHz energy well below
+   250–1500 Hz energy)
 6. **Measurement** (`measure.py`): F1/F2 averaged over the central third of the
    vowel
 7. **Annotation and output** (`analyze.py`): linguistic features, Bark
@@ -294,10 +288,10 @@ belongs to can be confirmed.
 - **Recogniser ceiling.** What the recogniser does not transcribe cannot be
   measured. Neighbour expansion reduces this but does not remove it.
 - **Formant ceilings** are set by hand per speaker and affect F1/F2.
-- **Vowel detection depends on F2 being trackable.** In noisy recordings, or in
-  tokens too short for a stable analysis, no stretch meets the bandwidth
-  criterion; the token then falls back to its voiced interval and is marked
-  `CHECK` rather than dropped.
+- **Vowel detection depends on the vowel being voiced.** A whispered vowel, or
+  one buried in noise, has no voiced moment to start from; the token is then
+  measured around its loudest non-fricative moment and marked `CHECK` rather
+  than dropped.
 - **Validation so far** covers L2 English (Japanese and Mandarin L1 speakers)
   over the /i–ɪ/, /u–ʊ/ and /ɑ–ʌ/ contrasts. Other contrasts and languages
   remain to be tested. Danish and Japanese are implemented but not yet

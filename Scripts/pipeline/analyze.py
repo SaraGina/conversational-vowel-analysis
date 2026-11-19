@@ -138,10 +138,7 @@ def write_excel(results, out_path):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Sheet1"
-    # the refined-boundary columns only exist on the annotation route
-    cols = list(COLUMN_ORDER) + [
-        c for c in ("Onset_refined", "Offset_refined", "F1_refined", "F2_refined")
-        if any(c in r for r in results)]
+    cols = list(COLUMN_ORDER)
     ws.append(cols)
     for c in ws[1]:
         c.font = Font(bold=True)

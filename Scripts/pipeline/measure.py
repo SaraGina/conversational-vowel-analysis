@@ -1,10 +1,19 @@
 """Acoustic measurement with parselmouth
 
-Word boundaries are refined by silence detection. The vowel is then delimited
-spectrally, the way an annotator does it by eye on a spectrogram: the longest
-stretch inside the word where F2 is a well-defined resonance (its -3 dB
-bandwidth narrower than 400 Hz(=F2_BANDWIDTH_MAX)). F1 and F2 are averaged over the central third
-of that stretch.
+The word keeps the start the recogniser gave it. Its end is moved to where the
+sound actually stops, by at most WORD_END_EXTENSION, because recognisers tend
+to close a word before its last consonant is over.
+
+The vowel is then found inside the recogniser's word the way an annotator
+finds it on a spectrogram: start from the loudest voiced moment, which lies
+inside the vowel, and widen it to both sides for as long as the sound stays
+voiced, stays within VOWEL_RANGE_DB of that peak, and does not turn into a
+fricative. Loudness is taken between 300 and 3500 Hz, where the vowel formants
+carry their energy, so a following nasal or lateral, which is weak there,
+falls outside. A moment counts as a fricative (s, sh, ch, f) when its energy
+between 4 and 8 kHz comes within FRICATIVE_DB of its energy between 250 and
+1500 Hz; vowels stay far below that line. F1 and F2 are averaged over the
+central third of the vowel found.
 
 Each word is assumed to carry a single vowel of interest.
 """
@@ -14,13 +23,85 @@ from parselmouth.praat import call
 
 MARGIN = 0.25
 
-F2_BANDWIDTH_MAX = 400.0
+# how much later than the recogniser's end a word may be allowed to end, s
+WORD_END_EXTENSION = 0.15
+
 VOWEL_STEP = 0.005
+# the band whose loudness is followed to find the vowel, Hz
+VOWEL_BAND = (300.0, 3500.0)
+# how far below its loudest moment the vowel may fall, dB
+VOWEL_RANGE_DB = 9.0
+# 4-8 kHz level minus 250-1500 Hz level above which a moment is a fricative, dB
+FRICATIVE_DB = -5.0
+# pitch tracking with a low floor and lenient thresholds, so that a soft,
+# breathy or creaky vowel still counts as voiced
+PITCH_FLOOR = 60.0
+SILENCE_THRESHOLD = 0.01
+VOICING_THRESHOLD = 0.25
+
+
+def _band_loudness(snd, lo, hi):
+    band = call(snd, "Filter (pass Hann band)", lo, hi, 100)
+    return call(band, "To Intensity", 100, 0.0, "yes")
+
+
+def _find_vowel(snd, start, end):
+    """Finds the vowel between start and end. Returns its start, its end, and
+    whether it was found on voiced sound."""
+    pitch = call(snd, "To Pitch (ac)", 0.0, PITCH_FLOOR, 15, "no",
+                 SILENCE_THRESHOLD, VOICING_THRESHOLD, 0.01, 0.35, 0.14,
+                 600.0)
+    loudness = _band_loudness(snd, *VOWEL_BAND)
+    # the fricative test needs the 4-8 kHz band; it is skipped on
+    # narrowband audio
+    top = min(8000.0, snd.sampling_frequency / 2 - 100)
+    hiss = body = None
+    if top > 5000:
+        hiss = _band_loudness(snd, 4000.0, top)
+        body = _band_loudness(snd, 250.0, 1500.0)
+
+    times = [start + i * VOWEL_STEP
+             for i in range(int((end - start) / VOWEL_STEP) + 1)]
+    level, voiced, vowel_like = [], [], []
+    for tk in times:
+        db = call(loudness, "Get value at time", tk, "cubic")
+        level.append(db)
+        f0 = call(pitch, "Get value at time", tk, "Hertz", "linear")
+        voiced.append(not math.isnan(f0))
+        ok = not math.isnan(db)
+        if ok and hiss is not None:
+            hi = call(hiss, "Get value at time", tk, "cubic")
+            lo = call(body, "Get value at time", tk, "cubic")
+            ok = math.isnan(hi) or math.isnan(lo) or hi - lo <= FRICATIVE_DB
+        vowel_like.append(ok)
+
+    # anchor on the loudest voiced moment that is not a fricative. If nothing
+    # in the word is voiced (whispered, or buried in noise), anchor on the
+    # loudest moment that is not a fricative, and report the vowel as not
+    # found so that run_measurement flags the row CHECK
+    found = True
+    usable = [v and w for v, w in zip(voiced, vowel_like)]
+    if not any(usable):
+        found = False
+        usable = vowel_like
+    if not any(usable):
+        return start, end, False
+    k = max((i for i in range(len(times)) if usable[i]),
+            key=lambda i: level[i])
+    floor = level[k] - VOWEL_RANGE_DB
+    a = b = k
+    while a > 0 and usable[a - 1] and level[a - 1] >= floor:
+        a -= 1
+    while b < len(times) - 1 and usable[b + 1] and level[b + 1] >= floor:
+        b += 1
+    if b == a:
+        return start, end, False
+    return times[a], times[b], found
 
 
 def _measure_token(snd_full, t1, t2, max_formant, refine=True):
-    """Measures one word: finds where it starts and ends, finds the vowel
-    inside it, and takes F1, F2 and the durations.
+    """Measures one word: finds where it ends, finds the vowel inside it, and
+    takes F1, F2 and the durations.
 
     With refine off the given boundaries are kept as they are, for a caller
     that brings its own and wants the vowel looked for inside exactly those.
@@ -34,7 +115,11 @@ def _measure_token(snd_full, t1, t2, max_formant, refine=True):
     if snd.n_channels > 1:
         snd = call(snd, "Extract one channel", 1)
 
-    # refine word boundaries by silence detection
+    # move the word's end to where its sound stops, found by silence
+    # detection: later than the recogniser's end, never earlier, and by at
+    # most WORD_END_EXTENSION. The start is kept: in running speech there is
+    # rarely a silence before a word, and the sounding stretch around it
+    # reaches back into the word before
     onset, offset = t1, t2
     if refine:
         tg = call(snd, "To TextGrid (silences)", 100, 0.0, -25.0, 0.05, 0.05,
@@ -42,6 +127,7 @@ def _measure_token(snd_full, t1, t2, max_formant, refine=True):
         n_int = call(tg, "Get number of intervals", 1)
         tmid0 = (t1 + t2) / 2
         best_ov = 0.0
+        sound_end = t2
         for k in range(1, n_int + 1):
             if call(tg, "Get label of interval", 1, k) != "sound":
                 continue
@@ -51,49 +137,13 @@ def _measure_token(snd_full, t1, t2, max_formant, refine=True):
             if ks <= tmid0 <= ke:
                 ov += 10
             if ov > best_ov:
-                best_ov, onset, offset = ov, ks, ke
+                best_ov, sound_end = ov, ke
+        offset = max(t2, min(sound_end, t2 + WORD_END_EXTENSION))
 
     fm = call(snd, "To Formant (burg)", 0.0, 5.0, float(max_formant),
               0.025, 50.0)
-
-    # longest run of frames with a pitch, inside the word
-    pitch = call(snd, "To Pitch", 0.0, 75.0, 500.0)
-    nfr = call(pitch, "Get number of frames")
-    best_len = cur_len = 0
-    v1, v2, cur_start = onset, offset, 0.0
-    for k in range(1, nfr + 1):
-        tk = call(pitch, "Get time from frame number", k)
-        f0 = call(pitch, "Get value in frame", k, "Hertz")
-        if onset <= tk <= offset and not math.isnan(f0):
-            if cur_len == 0:
-                cur_start = tk
-            cur_len += 1
-            if cur_len > best_len:
-                best_len, v1, v2 = cur_len, cur_start, tk
-        else:
-            cur_len = 0
-
-    # shrink that run to where F2's bandwidth stays under F2_BANDWIDTH_MAX;
-    # if there is none, keep the voiced run (run_measurement flags it CHECK)
-    vowel_ok = False
-    if v2 > v1:
-        times = [v1 + i * VOWEL_STEP
-                 for i in range(int((v2 - v1) / VOWEL_STEP) + 1)]
-        best_len = cur_len = 0
-        w1 = w2 = cur_start = None
-        for tk in times:
-            b2_t = call(fm, "Get bandwidth at time", 2, tk, "hertz", "linear")
-            good = not math.isnan(b2_t) and b2_t < F2_BANDWIDTH_MAX
-            if good:
-                if cur_len == 0:
-                    cur_start = tk
-                cur_len += 1
-                if cur_len > best_len:
-                    best_len, w1, w2 = cur_len, cur_start, tk
-            else:
-                cur_len = 0
-        if w1 is not None and w2 > w1:
-            v1, v2, vowel_ok = w1, w2, True
+    # the vowel is looked for inside the word as given, not in the extension
+    v1, v2, vowel_ok = _find_vowel(snd, t1, t2)
 
     # formants over the central third of the vowel
     ta = v1 + (v2 - v1) / 3
@@ -107,20 +157,16 @@ def _measure_token(snd_full, t1, t2, max_formant, refine=True):
                 F2=None if math.isnan(f2) else f2)
 
 
-def run_measurement(instances, max_formant_by_speaker, refine=True,
-                    also_refined=False):
+def run_measurement(instances, max_formant_by_speaker, refine=True):
     """Measures every word, each one on the microphone it was assigned to.
 
     The formant ceiling comes from the row when the pair declared one, and
     from the speaker otherwise; the value used is written to the row either
     way. Adds the measurements to each row, and marks with CHECK the ones
-    that look unreliable - a word or vowel too short, or formants that could
-    not be found.
+    that look unreliable - a word or vowel too short, formants that could
+    not be found, or no voiced vowel in the word.
 
-    With refine off the boundaries given on each row are kept; also_refined
-    then measures each word a second time with refinement on and stores that
-    under F1_refined and F2_refined, as a check on how much the boundaries
-    matter. The two usually agree.
+    With refine off the boundaries given on each row are kept as they are.
     """
     by_audio = {}
     for r in instances:
@@ -138,12 +184,6 @@ def run_measurement(instances, max_formant_by_speaker, refine=True,
             r["MaxFormant"] = float(mf)
             r.update(_measure_token(snd_full, r["tStart"], r["tEnd"], mf,
                                     refine))
-            if also_refined:
-                alt = _measure_token(snd_full, r["tStart"], r["tEnd"], mf, True)
-                r["Onset_refined"] = alt["Onset"]
-                r["Offset_refined"] = alt["Offset"]
-                r["F1_refined"] = alt["F1"]
-                r["F2_refined"] = alt["F2"]
             done += 1
             if done % 20 == 0 or done == total:
                 print(f"  measured {done}/{total} tokens", flush=True)
@@ -155,7 +195,7 @@ def run_measurement(instances, max_formant_by_speaker, refine=True,
         r["Check"] = "CHECK" if suspicious else ""
         n_chk += suspicious
     if n_chk:
-        print(f'{n_chk} instance(s) flagged "CHECK" (very short word/vowel or '
-              "missing formants) - verify those manually.")
+        print(f'{n_chk} instance(s) flagged "CHECK" (very short word/vowel, '
+              "missing formants or no voiced vowel) - verify those manually.")
     print("Acoustic measurement done.")
     return instances

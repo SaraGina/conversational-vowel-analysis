@@ -190,9 +190,7 @@ def run_annotations(cfg):
     measurement on is the same code, so a result from this route and one from
     the recordings can be compared directly.
 
-    The boundaries given are kept as they are. Each word is also measured a
-    second time with the boundaries refined, under F1_refined and F2_refined,
-    so the effect of where the word was cut can be seen rather than assumed.
+    The boundaries given are kept as they are.
 
     Gives back the path of the Excel it wrote.
     """
@@ -226,8 +224,7 @@ def run_annotations(cfg):
     core_all = ({clean(r["Word"]) for r in inst}
                 | {w for sw in set_words for w in sw})
 
-    results = run_measurement(inst, max_formant, refine=False,
-                              also_refined=True)
+    results = run_measurement(inst, max_formant, refine=False)
     vocab = load_vocab(os.path.join(INPUT, "master_vocab.csv"))
     results = annotate(results, sets, set_words, core_all, vocab,
                        label_a, label_b,
