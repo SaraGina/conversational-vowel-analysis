@@ -72,12 +72,14 @@ def _transcript_for(audio_path, cfg_spk, language="en"):
     yet.
 
     The language is part of the file name, so that changing it does not reuse
-    a transcript made in the other one. English keeps the older name.
+    a transcript made in the other one. So is the transcription setting:
+    "_fw2" transcripts are made without the speech filter (version 1.3.0 on);
+    "_fw" ones, made with it by earlier versions, are not reused.
     """
     if cfg_spk.get("transcript"):
         return _find_file(cfg_spk["transcript"], [INPUT])
     stem = os.path.splitext(os.path.basename(audio_path))[0]
-    suffix = "_fw.json" if language == "en" else f"_fw_{language}.json"
+    suffix = "_fw2.json" if language == "en" else f"_fw2_{language}.json"
     json_path = os.path.join(INPUT, stem + suffix)
     if not os.path.isfile(json_path):
         print(f"\nTranscribing {stem} with faster-whisper "

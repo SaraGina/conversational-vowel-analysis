@@ -115,12 +115,13 @@ For the table-shaped files, the word column may be called `Word`,
 `Trial_word`, `Intended_word`, `Target`, `Token`, `Label` or `Text`, and the
 onset column `Onset`, `Word_Start`, `Start`, `tStart`, `Begin` or `tmin`. Two
 more are used where present: an end (`Offset`, `Word_End`, `End`, `tEnd`,
-`tmax`) and a speaker (`Speaker`, `Participant`, `Talker`), whose values must
-match the labels in the config.
+`tmax`) and a speaker (`Speaker`, `Participant`, `Participant/Confederate`,
+`Talker`), whose values must match the labels in the config. Without a speaker
+column every word is measured in the first recording, and the run says so.
 
-A row whose end is missing is given a short window from its onset, its
-boundaries are found by silence detection inside it, and it is marked
-`FROM ONSET` in the `Boundaries` column. A TextGrid tier name is treated as a
+A row whose end is missing is given a 0.6 s window from its onset, the vowel
+is looked for inside that window, and the row is marked `FROM ONSET` in the
+`Boundaries` column. A TextGrid tier name is treated as a
 hint about the speaker: it is used when it matches a label in the config, and
 simply ignored when it does not.
 
@@ -229,18 +230,21 @@ might over-generate, and the reviewer might trim.
 Seven stages, in `Scripts/pipeline/`:
 
 1. **Transcription** (`transcribe_fw.py`): faster-whisper, word-level
-   timestamps, language forced, channel 1 only if the file is stereo
+   timestamps, language forced, channel 1 only if the file is stereo; the
+   whole recording is transcribed (no speech filter), each stretch decoded
+   without the previous text as a prompt
 2. **Token search** (`words.py`): expands each target word to
    phonetic-neighbour spellings the recogniser may produce
-3. **Speaker assignment** (`speaker.py`): acoustic, calibration-free; merges the
-   two microphones' copies of the same word
+3. **Speaker assignment** (`speaker.py`): from the two transcripts and the two
+   microphones' local levels, calibration-free; merges the two microphones'
+   copies of the same word
 4. **Word end** (`measure.py`): the recogniser's start is kept; the end is
    moved to where the sound stops (Praat silence detection), at most 150 ms
    later and never earlier
 5. **Vowel identification** (`measure.py`): from the loudest voiced moment of
    the word, widened while the sound stays voiced, within 9 dB of that peak
-   (300–3500 Hz) and not fricative-like (4–8 kHz energy well below
-   250–1500 Hz energy)
+   (300–3500 Hz) and not fricative-like (no more energy at 4–8 kHz than at
+   250–1500 Hz)
 6. **Measurement** (`measure.py`): F1/F2 averaged over the central third of the
    vowel
 7. **Annotation and output** (`analyze.py`): linguistic features, Bark
@@ -248,15 +252,14 @@ Seven stages, in `Scripts/pipeline/`:
 
 ### Three specific decisions made in the code
 
-**Speaker assignment is acoustic.** Each token is assigned by comparing the two
-recordings with each other: at every moment the pipeline takes the level in
-microphone A minus the level in microphone B, and the token goes to whichever of
-the two was the louder one while it was spoken.
-
-How much louder is not fixed in advance. The level differences measured across
-the whole conversation fall into two groups — one for the stretches where
-speaker A is the louder, one for speaker B — and the boundary is placed between
-them, separately for each recording. Nothing has to be calibrated beforehand.
+**Speaker assignment needs no calibration.** Each microphone hears its own
+speaker loudly and the other one faintly, so faintly that its transcript often
+misses the other speaker's words. A word that only one transcript contains is
+therefore given to that microphone's speaker. A word that both transcripts
+contain goes to the microphone in which it stands out more — each
+microphone's level taken against its own average over the surrounding 30
+seconds, which removes the difference in gain between the two microphones and
+any slow drift. Nothing is set or learned beforehand.
 
 Because both microphones pick up both speakers, the same word reaches the two
 transcripts twice, at different levels. Whenever the two copies overlap in time

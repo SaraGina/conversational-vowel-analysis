@@ -774,11 +774,10 @@ with tab_ann:
             "intervals is read. A sheet or a text file needs a column with the "
             "word and one with its onset in seconds; an Audacity label file is "
             "read as it is. An end is used where it is there; where it is not, "
-            "the boundaries are found by silence detection and the row is marked "
-            "FROM ONSET. Every word is also measured a second time with the "
-            "boundaries refined, reported beside the first as a check - the two "
-            "usually agree, and where they do not, the difference is how much the "
-            "boundary placement moved F1 and F2.")
+            "the vowel is looked for in the 0.6 s after the onset and the row is "
+            "marked FROM ONSET. A speaker column (Speaker, Participant, "
+            "Participant/Confederate) keeps only the words of the speaker "
+            "measured in this run.")
         st.caption(
             "**The minimal pairs above are not needed for this.** The words come "
             "from the annotation, and the Pair, Vowel, Tensity and Env columns are "

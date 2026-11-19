@@ -26,7 +26,8 @@ _ONSET = ("onset", "word_start", "start", "tstart", "begin", "start_time",
           "tmin", "xmin")
 _OFFSET = ("offset", "word_end", "end", "tend", "stop", "end_time", "tmax",
            "xmax")
-_SPEAKER = ("speaker", "participant", "talker", "tier")
+_SPEAKER = ("speaker", "participant", "talker", "tier",
+            "participant/confederate", "confederate/participant")
 
 SHEET = (".xlsx", ".xlsm")
 DELIMITED = (".csv", ".tsv", ".txt")
@@ -182,6 +183,12 @@ def read_annotations(path, audio_by_speaker, default_speaker, tier=None):
             f"{name} gave no usable rows. A sheet or delimited file needs a "
             f"column naming the word ({', '.join(_WORD[:4])}...) and one "
             f"giving its onset in seconds ({', '.join(_ONSET[:4])}...).")
+
+    if not any(spk for _, _, _, spk in found):
+        print(f"NOTE: {name} has no speaker column (Speaker, Participant, "
+              "...), so every word in it is measured in the recording of "
+              f"{default_speaker}. Words said by the other speaker will be "
+              "measured on the wrong microphone.")
 
     known = {str(k).strip().lower(): k for k in audio_by_speaker}
     out, unknown = [], set()

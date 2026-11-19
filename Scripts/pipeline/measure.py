@@ -10,9 +10,9 @@ inside the vowel, and widen it to both sides for as long as the sound stays
 voiced, stays within VOWEL_RANGE_DB of that peak, and does not turn into a
 fricative. Loudness is taken between 300 and 3500 Hz, where the vowel formants
 carry their energy, so a following nasal or lateral, which is weak there,
-falls outside. A moment counts as a fricative (s, sh, ch, f) when its energy
-between 4 and 8 kHz comes within FRICATIVE_DB of its energy between 250 and
-1500 Hz; vowels stay far below that line. F1 and F2 are averaged over the
+falls outside. A moment counts as a fricative (s, sh, ch, f) when it has more
+energy between 4 and 8 kHz, where frication noise lies, than between 250 and
+1500 Hz, where a vowel's first formant lies. F1 and F2 are averaged over the
 central third of the vowel found.
 
 Each word is assumed to carry a single vowel of interest.
@@ -31,8 +31,9 @@ VOWEL_STEP = 0.005
 VOWEL_BAND = (300.0, 3500.0)
 # how far below its loudest moment the vowel may fall, dB
 VOWEL_RANGE_DB = 9.0
-# 4-8 kHz level minus 250-1500 Hz level above which a moment is a fricative, dB
-FRICATIVE_DB = -5.0
+# 4-8 kHz level minus 250-1500 Hz level above which a moment is a fricative,
+# dB: 0 means more energy in the frication band than in the vowel band
+FRICATIVE_DB = 0.0
 # pitch tracking with a low floor and lenient thresholds, so that a soft,
 # breathy or creaky vowel still counts as voiced
 PITCH_FLOOR = 60.0

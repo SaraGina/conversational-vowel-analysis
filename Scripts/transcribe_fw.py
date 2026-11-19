@@ -7,12 +7,19 @@ flat JSON word list that the rest of the pipeline reads directly.
 
 The language is forced rather than auto-detected in this pipeline.
 
+The whole recording is transcribed: faster-whisper's speech detector (its VAD
+filter) is off, because in some recordings it judged minutes of real
+conversation to be silence and they were never transcribed. Each stretch is
+also decoded without the text of the previous one as a prompt, which keeps
+the recogniser from locking into a loop of one repeated word across
+silences, the usual risk of transcribing without the filter.
+
 Output JSON: a top-level list of {"text": word, "timestamp": "HH:MM:SS,mmm-HH:MM:SS,mmm"}.
 The speaker is set by the pipeline, so no diarization is needed here.
 
 Can also be run on its own, on a single file:
     ./venv/bin/python transcribe_fw.py  INPUT.wav  OUTPUT.json
-    ./venv/bin/python transcribe_fw.py  INPUT.wav  OUTPUT.json  --no-vad
+    ./venv/bin/python transcribe_fw.py  INPUT.wav  OUTPUT.json  --vad
 """
 import argparse, json, sys
 
@@ -34,10 +41,12 @@ def main():
     ap.add_argument("--language", default="en")
     ap.add_argument("--speaker", default=None,
                     help="optional speaker label to embed (pipeline sets it anyway)")
-    ap.add_argument("--no-vad", action="store_true",
-                    help="transcribe the silences too. Slower, but keeps short "
-                         "words said alone in a pause, which the speech "
-                         "detector can otherwise drop")
+    ap.add_argument("--vad", action="store_true",
+                    help="drop what the speech detector judges to be silence "
+                         "before transcribing. Faster, but in some recordings "
+                         "it drops whole stretches of speech")
+    # the old switch, now the default; still accepted
+    ap.add_argument("--no-vad", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--channel", default="1", choices=["1", "2", "mix"],
                     help="which channel to transcribe (default: 1). Do not use "
                          "'mix' on a balanced two-microphone recording: "
@@ -61,7 +70,8 @@ def main():
     model = WhisperModel(args.model, device="cpu", compute_type=args.compute_type)
     segments, info = model.transcribe(
         audio, language=args.language, word_timestamps=True,
-        vad_filter=not args.no_vad,
+        vad_filter=args.vad,
+        condition_on_previous_text=False,
     )
 
     words = []

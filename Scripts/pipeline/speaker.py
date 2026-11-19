@@ -1,17 +1,18 @@
 """Determines which speaker said each word, from the sound alone.
 
 Each speaker wears their own microphone, but both microphones pick up both
-speakers. A word is therefore assigned to whichever recording it sounds
-louder in.
+speakers. The far microphone hears the other speaker more faintly, and its
+transcript often misses that speaker's words altogether.
 
 How it is done:
-  1. Measure how loud each recording is, every 50 ms (first channel only).
-  2. Keep the moments where someone is speaking - loud enough to stand out
-     from that recording's own background - and look at the difference in
-     loudness between the two microphones across all of them. Those
-     differences fall into two groups, one per speaker; the boundary between
-     the groups becomes the threshold for this session.
-  3. Assign each word by its own average difference against that threshold.
+  1. Measure how loud each recording is, every 50 ms (first channel only),
+     and express it against that recording's own average over the
+     surrounding 30 seconds. This removes the difference in gain between the
+     two microphones, and any slow drift, so nothing has to be calibrated.
+  2. A word that only one transcript contains goes to that recording's
+     speaker.
+  3. A word that both transcripts contain, less than a second apart, goes to
+     the recording in which it stands out more above its own local level.
   4. A word caught by both microphones appears twice. When the two copies
      overlap in time, keep one: the copy from the speaker's own microphone
      if both transcripts agree on the word, or a single row carrying both
@@ -56,23 +57,6 @@ def _loudness_over_time(path, frame_dur=FRAME_DUR):
     return L, tF
 
 
-def _percentile(x, q):
-    x = np.sort(x)
-    k = max(1, min(len(x), round(q / 100 * len(x))))
-    return x[k - 1]
-
-
-def _split_into_two_groups(d):
-    c1, c2 = _percentile(d, 10), _percentile(d, 90)
-    for _ in range(100):
-        to1 = np.abs(d - c1) < np.abs(d - c2)
-        n1, n2 = d[to1].mean(), d[~to1].mean()
-        if abs(n1 - c1) < 1e-6 and abs(n2 - c2) < 1e-6:
-            break
-        c1, c2 = n1, n2
-    return (c1, c2) if c1 <= c2 else (c2, c1)
-
-
 def assign_speaker(matches, audio_a, audio_b, speaker_a, speaker_b):
     import os
     print(f"Analyzing microphone levels: {os.path.basename(audio_a)} ...",
@@ -108,27 +92,12 @@ def assign_speaker(matches, audio_a, audio_b, speaker_a, speaker_b):
               "share one timeline, so trim or re-align the two wav files "
               "before trusting the results.")
     if peak_corr < 0.3:
-        print(f"WARNING: the two recordings do not sound like the same "
-              f"conversation. The speaker assignment cannot be trusted.")
+        print(f"WARNING: the loudness of the two recordings rises and falls "
+              f"very differently (they match {peak_corr:.2f} out of 1). If "
+              "they are not the two microphones of one conversation, recorded "
+              "in sync, the speaker assignment will be wrong.")
 
-    active = (LA > _percentile(LA, 5) + 10) | (LB > _percentile(LB, 5) + 10)
-    d = LA[active] - LB[active]
-    if len(d) < 20:
-        raise RuntimeError("Too little speech detected to estimate the speaker threshold.")
-    c1, c2 = _split_into_two_groups(d)
-    thr = (c1 + c2) / 2
-    print(f"Speaker separation: cluster centres at {c1:+.1f} and {c2:+.1f} dB "
-          f"(threshold {thr:+.1f} dB).")
-    if c2 - c1 < 6:
-        print(f"WARNING: the two level clusters are only {c2 - c1:.1f} dB apart - "
-              "speaker assignment may be unreliable.")
-
-    # B - can the level threshold be trusted? 
-    # If not, the fallback below is used instead.
-    healthy = peak_corr >= 0.3 and (c2 - c1) >= 6
-
-    # The fallback. It assigns a word by which transcript picked it up, and
-    # by levels compared against a 30-second local average of each channel.
+    # B - each recording's level against its own average over 30 seconds
     win = max(1, int(30 / FRAME_DUR))
     kern = np.ones(win) / win
     cnt = np.convolve(np.ones(n), kern, "same")
@@ -146,57 +115,34 @@ def assign_speaker(matches, audio_a, audio_b, speaker_a, speaker_b):
                 return True
         return False
 
-    def classify(use_fallback):
-        rows = []
-        for m in matches:
-            w1, w2 = m["tStart"] - PAD, m["tEnd"] + PAD
-            sel = (tF >= w1) & (tF <= w2)
-            if not sel.any():
-                sel = np.zeros_like(tF, dtype=bool)
-                sel[np.argmin(np.abs(tF - m["tStart"]))] = True
-            if not use_fallback:
-                di = LA[sel].mean() - LB[sel].mean()
-                is_a = di > thr
-                conf = abs(di - thr)
-            elif has_counterpart(m):
-                dl = la[sel].mean() - lb[sel].mean()
-                is_a = dl > 0
-                conf = abs(dl)
-            # only one mic's ASR heard it -> its owner
-            else:
-                is_a = m["speaker"] == speaker_a
-                conf = abs(la[sel].mean() - lb[sel].mean())
-            rows.append({
-                "Speaker": speaker_a if is_a else speaker_b,
-                "Word": m["word"], "tStart": m["tStart"], "tEnd": m["tEnd"],
-                "AudioFile": audio_a if is_a else audio_b,
-                "LevelDiff_dB": conf,
-                "HeardAs": m.get("heard_as", ""),
-                "fromOwn": m["speaker"] == (speaker_a if is_a else speaker_b),
-            })
-        return rows
-
-    if not healthy:
-        print("NOTE: the two microphone levels cannot be compared directly "
-              f"here (recordings match {peak_corr:.2f} out of 1, and the two "
-              f"groups of level differences are only {c2 - c1:.1f} dB apart). "
-              "Using the transcripts and each channel's local level instead.")
-    rows = classify(use_fallback=not healthy)
-
-    # If nearly every word went to one speaker, try the fallback as well and
-    # keep whichever result is less one-sided.
-    if healthy and len(rows) >= 20:
-        n_a = sum(1 for r in rows if r["Speaker"] == speaker_a)
-        if min(n_a, len(rows) - n_a) / len(rows) < 0.10:
-            rows2 = classify(use_fallback=True)
-            n_a2 = sum(1 for r in rows2 if r["Speaker"] == speaker_a)
-            if min(n_a2, len(rows2) - n_a2) > min(n_a, len(rows) - n_a):
-                print("NOTE: comparing the two microphones sent almost every "
-                      f"word to one speaker ({n_a} vs {len(rows) - n_a}). "
-                      "Assigned them again using the transcripts and each "
-                      "channel's local level instead, which gave a more even "
-                      f"split ({n_a2} vs {len(rows2) - n_a2}).")
-                rows = rows2
+    rows = []
+    n_both = 0
+    for m in matches:
+        w1, w2 = m["tStart"] - PAD, m["tEnd"] + PAD
+        sel = (tF >= w1) & (tF <= w2)
+        if not sel.any():
+            sel = np.zeros_like(tF, dtype=bool)
+            sel[np.argmin(np.abs(tF - m["tStart"]))] = True
+        dl = la[sel].mean() - lb[sel].mean()
+        if has_counterpart(m):
+            # both transcripts have it: the louder recording, locally
+            is_a = dl > 0
+            n_both += 1
+        else:
+            # only one transcript has it: that recording's speaker
+            is_a = m["speaker"] == speaker_a
+        rows.append({
+            "Speaker": speaker_a if is_a else speaker_b,
+            "Word": m["word"], "tStart": m["tStart"], "tEnd": m["tEnd"],
+            "AudioFile": audio_a if is_a else audio_b,
+            "LevelDiff_dB": abs(dl),
+            "HeardAs": m.get("heard_as", ""),
+            "fromOwn": m["speaker"] == (speaker_a if is_a else speaker_b),
+        })
+    print(f"Speaker assignment: {len(matches) - n_both} occurrence(s) found in "
+          f"one transcript only, given to that recording's speaker; {n_both} "
+          "found in both, given to the recording in which they stand out "
+          "more.")
 
     # C - remove duplicates and flag disagreements 
     # Treating two tokens that overlap in time by more than half of the
